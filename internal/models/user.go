@@ -1,0 +1,24 @@
+package models
+
+import "time"
+
+type Role string
+
+const (
+	RoleAdmin     Role = "ADMIN"
+	RoleExecutor  Role = "EXECUTOR"
+	RoleCustomer  Role = "CUSTOMER"
+	RoleInspector Role = "INSPECTOR"
+)
+
+type User struct {
+	ID                 uint      `gorm:"primaryKey" json:"id"`
+	FullName           string    `json:"full_name"`
+	Email              *string   `gorm:"uniqueIndex" json:"email,omitempty"`
+	Phone              *string   `gorm:"uniqueIndex" json:"phone,omitempty"`
+	Role               Role      `json:"role"`
+	PasswordHash       string    `json:"-"`
+	MustChangePassword bool      `json:"must_change_password"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
+}
