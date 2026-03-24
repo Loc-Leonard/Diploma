@@ -33,7 +33,7 @@ const error = ref<string | null>(null)
 const router = useRouter()
 const auth = useAuthStore()
 
-const API_BASE = 'http://localhost:8080' // потом можно вынести в .env
+const API_BASE = 'http://localhost:8080'
 
 async function onSubmit() {
   error.value = null
