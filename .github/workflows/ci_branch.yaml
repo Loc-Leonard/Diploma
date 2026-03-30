@@ -13,21 +13,6 @@ jobs:
   go-integration-test:
     runs-on: ubuntu-latest
 
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: user
-          POSTGRES_PASSWORD: pass
-          POSTGRES_DB: journal
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,20 +22,25 @@ jobs:
         with:
           go-version: '1.22'
 
-      - name: Debug DNS and services
+      - name: Run Postgres in Docker
         run: |
-          echo "Hosts:"
-          cat /etc/hosts || true
+          docker run -d --name ci-postgres \
+            -e POSTGRES_USER=user \
+            -e POSTGRES_PASSWORD=pass \
+            -e POSTGRES_DB=journal \
+            -p 5432:5432 postgres:16
 
-          echo "Docker ps (if any):"
-          docker ps || true
-
-          echo "Env TEST_DB_DSN:"
-          echo "$TEST_DB_DSN"
-        env:
-          TEST_DB_DSN: postgres://user:pass@postgres:5432/journal?sslmode=disable
+          # ждём, пока Postgres поднимется
+          for i in {1..10}; do
+            if docker exec ci-postgres pg_isready -U user >/dev/null 2>&1; then
+              echo "Postgres is ready"
+              break
+            fi
+            echo "waiting for postgres..."
+            sleep 3
+          done
 
       - name: Run customer tests
         env:
-          TEST_DB_DSN: postgres://user:pass@postgres:5432/journal?sslmode=disable
+          TEST_DB_DSN: postgres://user:pass@localhost:5432/journal?sslmode=disable
         run: go test ./tests/customer/... -v

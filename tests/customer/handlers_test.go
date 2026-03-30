@@ -52,7 +52,7 @@ func newTestDB(t *testing.T) *gorm.DB {
 	if dsn == "" {
 		t.Fatalf("TEST_DB_DSN is not set")
 	}
-	t.Logf("TEST_DB_DSN=%s", dsn) //check logs in CI
+	t.Logf("TEST_DB_DSN=%s", dsn)
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
