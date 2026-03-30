@@ -85,7 +85,6 @@ func setupCustomerRouter(t *testing.T, db *gorm.DB, userID uint, role string) *g
 	// подменяем реальные AuthMiddleware(), MustChangePasswordMiddleware, CustomerOnly
 	gr.Use(
 		fakeAuth(userID, role),
-		// MustChangePasswordMiddleware использует DB + auth.UserIDFromContext
 		auth.MustChangePasswordMiddleware(db),
 		auth.CustomerOnly(),
 	)
@@ -100,28 +99,25 @@ func setupCustomerRouter(t *testing.T, db *gorm.DB, userID uint, role string) *g
 func TestDashboardObjects_Basic(t *testing.T) {
 	db := newTestDB(t)
 
-	customerID := uint(10)
-	foremanID := uint(20)
-
 	// прораб
 	foreman := models.User{
-		ID:       foremanID,
 		FullName: "Иванов Иван",
 		Role:     models.RoleForeman,
 	}
 	if err := db.Create(&foreman).Error; err != nil {
 		t.Fatalf("seed foreman: %v", err)
 	}
+	foremanID := foreman.ID
 
 	// заказчик
 	customerUser := models.User{
-		ID:       customerID,
 		FullName: "Заказчик",
 		Role:     models.RoleCustomer,
 	}
 	if err := db.Create(&customerUser).Error; err != nil {
 		t.Fatalf("seed customer: %v", err)
 	}
+	customerID := customerUser.ID
 
 	now := time.Now().Truncate(time.Second)
 
@@ -176,16 +172,16 @@ func TestDashboardObjects_Basic(t *testing.T) {
 
 func TestDashboardObjects_Filters(t *testing.T) {
 	db := newTestDB(t)
-	customerID := uint(10)
 
+	// заказчик
 	customerUser := models.User{
-		ID:       customerID,
 		FullName: "Заказчик",
 		Role:     models.RoleCustomer,
 	}
 	if err := db.Create(&customerUser).Error; err != nil {
 		t.Fatalf("seed customer: %v", err)
 	}
+	customerID := customerUser.ID
 
 	obj1 := models.Object{
 		Name:                  "Объект Москва активный",
@@ -234,26 +230,25 @@ func TestDashboardObjects_Filters(t *testing.T) {
 func TestDashboardForemen_Basic(t *testing.T) {
 	db := newTestDB(t)
 
-	customerID := uint(10)
-	foremanID := uint(20)
-
+	// заказчик
 	customerUser := models.User{
-		ID:       customerID,
 		FullName: "Заказчик",
 		Role:     models.RoleCustomer,
 	}
 	if err := db.Create(&customerUser).Error; err != nil {
 		t.Fatalf("seed customer: %v", err)
 	}
+	customerID := customerUser.ID
 
+	// прораб
 	foreman := models.User{
-		ID:       foremanID,
 		FullName: "Иванов Иван",
 		Role:     models.RoleForeman,
 	}
 	if err := db.Create(&foreman).Error; err != nil {
 		t.Fatalf("seed foreman: %v", err)
 	}
+	foremanID := foreman.ID
 
 	obj := models.Object{
 		Name:                  "Объект 1",
