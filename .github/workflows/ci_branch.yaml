@@ -37,10 +37,18 @@ jobs:
         with:
           go-version: '1.22'
 
-      - name: Check Postgres Service
+      - name: Debug DNS and services
         run: |
-          apt-get update && apt-get install -y postgresql-client
-          PGPASSWORD=pass psql -h postgres -U user -d journal -c 'SELECT 1;'
+          echo "Hosts:"
+          cat /etc/hosts || true
+
+          echo "Docker ps (if any):"
+          docker ps || true
+
+          echo "Env TEST_DB_DSN:"
+          echo "$TEST_DB_DSN"
+        env:
+          TEST_DB_DSN: postgres://user:pass@postgres:5432/journal?sslmode=disable
 
       - name: Run customer tests
         env:
