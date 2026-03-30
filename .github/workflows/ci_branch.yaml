@@ -17,9 +17,9 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: diploma_test
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: pass
+          POSTGRES_DB: journal
         ports:
           - 5432:5432
         options: >-
@@ -39,5 +39,5 @@ jobs:
 
       - name: Run customer tests
         env:
-          TEST_DB_DSN: postgres://postgres:postgres@postgres:5432/diploma_test?sslmode=disable
+          TEST_DB_DSN: postgres://user:pass@postgres:5432/journal?sslmode=disable
         run: go test ./tests/customer/... -v
