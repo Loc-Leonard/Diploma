@@ -43,4 +43,6 @@ jobs:
       - name: Run customer tests
         env:
           TEST_DB_DSN: postgres://user:pass@localhost:5432/journal?sslmode=disable
-        run: go test ./tests/customer/... -v
+        run: |
+          go test ./tests/customer/... -coverprofile=coverage.out -coverpkg=./internal/customer -v
+          go tool cover -func=coverage.out | grep total
