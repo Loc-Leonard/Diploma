@@ -68,3 +68,23 @@ func AdminOnly() gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+func CustomerOnly() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		roleVal, ok := c.Get("role")
+		if !ok || roleVal.(string) != "CUSTOMER" {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "customer only"})
+			return
+		}
+		c.Next()
+	}
+}
+
+func UserIDFromContext(c *gin.Context) uint {
+	v, ok := c.Get("user_id")
+	if !ok {
+		return 0
+	}
+	id, _ := v.(uint)
+	return id
+}

@@ -44,6 +44,7 @@ const API_BASE = 'http://localhost:8080'
 async function onSubmit() {
   error.value = null
   loading.value = true
+
   try {
     const res = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
@@ -60,14 +61,23 @@ async function onSubmit() {
     }
 
     const data = await res.json()
+
+    // сохраняем токен, пользователя и must_change_password в стор
+    // ожидается, что setAuth принимает объект ответа логина
     auth.setAuth(data)
 
+    // дальше решаем, куда перенаправлять
     if (data.must_change_password) {
+      // обязательно сменить пароль
       router.push({ name: 'change-password' })
     } else if (data.user.role === 'ADMIN') {
+      // админский кабинет
       router.push({ name: 'admin-users' })
+    } else if (data.user.role === 'CUSTOMER') {
+      // дашборд заказчика
+      router.push({ name: 'customer-objects' })
     } else {
-      // позже: другие роли
+      // временный fallback для других ролей
       router.push({ name: 'admin-users' })
     }
   } catch (e: any) {
@@ -139,12 +149,13 @@ input {
   font-size: 14px;
   box-sizing: border-box;
   outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease,
+    background-color 0.15s ease;
   background-color: #f9fafb;
 }
 
 input:focus {
-  border-color: #a5b4fc;        /* мягкий сиреневый */
+  border-color: #a5b4fc;
   box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.35);
   background-color: #ffffff;
 }
@@ -160,9 +171,10 @@ button {
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  background: #a5b4fc;          /* пастельный фиолетовый */
+  background: #a5b4fc;
   color: #111827;
-  transition: background-color 0.15s ease, transform 0.05s ease, box-shadow 0.15s ease;
+  transition: background-color 0.15s ease, transform 0.05s ease,
+    box-shadow 0.15s ease;
   box-shadow: 0 8px 18px rgba(129, 140, 248, 0.35);
 }
 
