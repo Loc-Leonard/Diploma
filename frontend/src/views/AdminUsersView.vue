@@ -135,7 +135,7 @@
             <select v-model="role" required>
               <option value="CUSTOMER">Заказчик</option>
               <option value="FOREMAN">Прораб</option>
-              <option value="EXECUTOR">Исполнитель</option>
+              <option value="INSPECTOR">Инспектор</option>
               <option value="ADMIN">Админ</option>
             </select>
           </div>
