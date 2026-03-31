@@ -125,3 +125,7 @@ func (h *Handler) CreateUser(c *gin.Context) {
 		"temp_password": tempPassword, // ← показываем админу
 	})
 }
+
+func HandlerForTest(db *gorm.DB) *Handler {
+	return &Handler{db: db}
+}
