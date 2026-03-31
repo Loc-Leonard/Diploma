@@ -4,7 +4,12 @@ import ChangePasswordView from '../views/ChangePasswordView.vue'
 import AdminUsersView from '../views/AdminUsersView.vue'
 import CustomerObjectsView from '../views/CustomerObjectsView.vue'
 import { useAuthStore } from '../stores/auth'
+
+import ForemanObjectView from '../views/ForemanObjectView.vue'
+import ForemanObjectsView from '../views/ForemanObjectsView.vue'
+
 import CustomerObjectCreate from '../views/CustomerObjectCreate.vue'
+
 
 const routes: RouteRecordRaw[] = [
   {
@@ -35,6 +40,17 @@ const routes: RouteRecordRaw[] = [
     name: 'customer-objects',
     component: CustomerObjectsView,
     meta: { requiresAuth: true },
+  },
+  {
+    path: '/foreman/objects',
+    name: 'foreman-objects',
+    component: ForemanObjectsView
+  },
+  {
+    path: '/foreman/objects/:id',
+    name: 'foreman-object',
+    component: ForemanObjectView,
+    props: true,
   },
   {
     path: '/:pathMatch(.*)*',

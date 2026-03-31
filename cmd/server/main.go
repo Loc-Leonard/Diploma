@@ -13,6 +13,7 @@ import (
 	"github.com/Loc-Leonard/Diploma/internal/config"
 	"github.com/Loc-Leonard/Diploma/internal/customer"
 	"github.com/Loc-Leonard/Diploma/internal/db"
+	"github.com/Loc-Leonard/Diploma/internal/foreman"
 	"github.com/Loc-Leonard/Diploma/internal/models"
 )
 
@@ -21,7 +22,13 @@ func main() {
 	database := db.MustConnect(cfg.DBDsn)
 
 	// миграция через GORM (на всякий случай, если без docker-entrypoint-initdb.d)
-	if err := database.AutoMigrate(&models.User{}, &models.Object{}); err != nil {
+	if err := database.AutoMigrate(
+		&models.User{},
+		&models.Object{},
+		&models.WorkItem{},
+		&models.WorkReport{},
+		&models.MaterialDelivery{},
+	); err != nil {
 		log.Printf("auto migrate failed: %v", err)
 	}
 
@@ -40,6 +47,7 @@ func main() {
 	auth.RegisterRoutes(r, database)
 	admin.RegisterRoutes(r, database)
 	customer.RegisterRoutes(r, database)
+	foreman.RegisterRoutes(r, database)
 
 	if err := r.Run(":8080"); err != nil {
 		log.Fatal(err)

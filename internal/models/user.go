@@ -6,7 +6,7 @@ type Role string
 
 const (
 	RoleAdmin     Role = "ADMIN"
-	RoleExecutor  Role = "EXECUTOR"
+	RoleExecutor  Role = "EXECUTOR" //вырезать потом!
 	RoleCustomer  Role = "CUSTOMER"
 	RoleInspector Role = "INSPECTOR"
 	RoleForeman   Role = "FOREMAN"
