@@ -64,7 +64,7 @@ const router = createRouter({
 })
 
 // переписываем guard без next() (Vue Router 4)
-router.beforeEach((to, from) => {
+router.beforeEach((to) => {
   const auth = useAuthStore()
 
   // если маршрут требует авторизации, а пользователь не залогинен
@@ -77,17 +77,8 @@ router.beforeEach((to, from) => {
     return { name: 'login' }
   }
 
-  // если уже залогинен и идём на /login — сразу перекидываем по роли
-  if (to.name === 'login' && auth.isAuthenticated) {
-    if (auth.user?.role === 'ADMIN') {
-      return { name: 'admin-users' }
-    }
-    if (auth.user?.role === 'CUSTOMER') {
-      return { name: 'customer-objects' }
-    }
-  }
-
   // ничего не возвращаем — переход продолжается
 })
+
 
 export default router
