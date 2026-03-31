@@ -76,6 +76,10 @@ async function onSubmit() {
     } else if (data.user.role === 'CUSTOMER') {
       // дашборд заказчика
       router.push({ name: 'customer-objects' })
+    }else if (data.user.role == 'FOREMAN') {
+      router.push({  name: 'foreman-objects'})
+    } else if (data.user.role == 'INSPECTOR') {
+      router.push({ name: 'inspector-objects' })
     } else {
       // временный fallback для других ролей
       router.push({ name: 'admin-users' })

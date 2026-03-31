@@ -8,6 +8,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+
+	"github.com/Loc-Leonard/Diploma/internal/models"
 )
 
 type Claims struct {
@@ -74,6 +76,17 @@ func CustomerOnly() gin.HandlerFunc {
 		roleVal, ok := c.Get("role")
 		if !ok || roleVal.(string) != "CUSTOMER" {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "customer only"})
+			return
+		}
+		c.Next()
+	}
+}
+
+func ForemanOnly() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		roleVal, ok := c.Get("role")
+		if !ok || roleVal.(string) != string(models.RoleForeman) {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "foreman only"})
 			return
 		}
 		c.Next()
