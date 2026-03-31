@@ -192,7 +192,7 @@ const search = ref('')
 const fullName = ref('')
 const email = ref('')
 const phone = ref('')
-const role = ref('EXECUTOR')
+const role = ref('INSPECTOR')
 const creating = ref(false)
 const createError = ref<string | null>(null)
 const tempPassword = ref<string | null>(null)
@@ -256,8 +256,8 @@ function roleLabel(r: string) {
       return 'Заказчик'
     case 'FOREMAN':
       return 'Прораб'
-    case 'EXECUTOR':
-      return 'Исполнитель'
+    case 'INSPECTOR':
+      return 'Инспектор'
     case 'ADMIN':
       return 'Админ'
     default:
@@ -269,7 +269,7 @@ function roleClass(r: string) {
   return {
     'role-chip--customer': r === 'CUSTOMER',
     'role-chip--foreman': r === 'FOREMAN',
-    'role-chip--executor': r === 'EXECUTOR',
+    'role-chip--inspector': r === 'INSPECTOR',
     'role-chip--admin': r === 'ADMIN',
   }
 }
@@ -312,7 +312,7 @@ async function createUser() {
     fullName.value = ''
     email.value = ''
     phone.value = ''
-    role.value = 'EXECUTOR'
+    role.value = 'INSPECTOR'
 
     await fetchUsers()
   } catch (e: any) {
@@ -528,7 +528,7 @@ async function createUser() {
   color: #854d0e;
 }
 
-.role-chip--executor {
+.role-chip--inspector {
   background: #ede9fe;
   color: #5b21b6;
 }
