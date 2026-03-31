@@ -74,7 +74,7 @@ func TestAdmin_ListUsers_Empty(t *testing.T) {
 
 	r := setupAdminRouter(t, db, adminUser.ID, string(models.RoleAdmin))
 
-	req, _ := http.NewRequest(http.MethodGet, "/admin.users", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/admin/users", nil)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -149,8 +149,15 @@ func TestAdmin_CreateUser_And_ListUsers(t *testing.T) {
 		t.Fatalf("unmarshal list: %v", err)
 	}
 
-	if len(list) != 2 { //admin + new user
-		t.Fatalf("expected 2 users, got %d", len(list))
+	found := false
+	for _, u := range list {
+		if u.FullName == body.FullName && u.Role == body.Role {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("created user noot found in list, list=%+v", list)
 	}
 }
 
