@@ -3,7 +3,7 @@
     <!-- Левое меню -->
     <aside class="sidebar">
       <div class="sidebar-top">
-        <div class="sidebar-logo">ЛОГОТИП</div>
+        <div class="sidebar-logo">{{ greeting }}</div>
 
         <nav class="sidebar-nav">
           <button class="nav-item nav-item--active">Объекты</button>
@@ -27,7 +27,7 @@
     <main class="customer-main">
       <header class="customer-header">
         <h1 class="customer-title">Объекты</h1>
-
+        <button class="primary-btn" @click="goCreateObject"> Создать объект </button>
         <div class="customer-header-right">
           <!-- Поиск по названию объекта -->
           <div class="search-wrapper">
@@ -196,7 +196,19 @@ const API_BASE = 'http://localhost:8080'
 const auth = useAuthStore()
 const router = useRouter()
 
+function goCreateObject() {
+  router.push({ name: 'customer-object-create' })
+}
+
 // ==== Типы данных (под API бэка) ====
+// Приветствие в левом верхнем углу
+const greeting = computed(() => {
+  if (!auth.isAuthenticated) {
+    return 'Добрый день'
+  }
+  const u = auth.user
+  return u?.full_name ? `Добрый день, ${u.full_name}` : 'Добрый день'
+})
 
 type DashboardObjectStatus =
   | 'PLANNED'
@@ -368,6 +380,22 @@ function statusClass(status: DashboardObjectStatus) {
 </script>
 
 <style scoped>
+.customer-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.primary-btn {
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: none;
+  background: #4f46e5;
+  color: #ffffff;
+  font-size: 14px;
+  cursor: pointer;
+}
+
 .customer-layout {
   display: grid;
   /* меню 206, центр, карта 445 */
