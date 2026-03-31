@@ -4,10 +4,20 @@ import ChangePasswordView from '../views/ChangePasswordView.vue'
 import AdminUsersView from '../views/AdminUsersView.vue'
 import CustomerObjectsView from '../views/CustomerObjectsView.vue'
 import { useAuthStore } from '../stores/auth'
+
 import ForemanObjectView from '../views/ForemanObjectView.vue'
 import ForemanObjectsView from '../views/ForemanObjectsView.vue'
 
+import CustomerObjectCreate from '../views/CustomerObjectCreate.vue'
+
+
 const routes: RouteRecordRaw[] = [
+  {
+    path: '/customer/objects/new',
+    name: 'customer-object-create',
+    component: CustomerObjectCreate
+
+  },
   {
     path: '/login',
     name: 'login',
