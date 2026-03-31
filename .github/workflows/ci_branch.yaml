@@ -44,5 +44,5 @@ jobs:
         env:
           TEST_DB_DSN: postgres://user:pass@localhost:5432/journal?sslmode=disable
         run: |
-          go test ./tests/customer/... ..tests/admin... -coverprofile=coverage.out -coverpkg=./internal/customer -v
+          go test ./tests/customer/... .tests/admin... -coverprofile=coverage.out -coverpkg=./internal/customer,./internal/admin -v
           go tool cover -func=coverage.out | grep total
