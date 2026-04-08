@@ -69,7 +69,7 @@ func (h *Handler) DashboardChecks(c *gin.Context) {
 		Where("inspector_id = ?", inspectorID)
 
 	if status := c.Query("status"); status != "" {
-		tx = tx.Where("status = ?", status)
+		tx = tx.Where("inspections.status = ?", status)
 	}
 	if city := c.Query("city"); city != "" {
 		tx = tx.Joins("JOIN objects ON objects.id = inspections.object_id").
