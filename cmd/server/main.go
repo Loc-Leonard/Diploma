@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -14,6 +15,7 @@ import (
 	"github.com/Loc-Leonard/Diploma/internal/customer"
 	"github.com/Loc-Leonard/Diploma/internal/db"
 	"github.com/Loc-Leonard/Diploma/internal/foreman"
+	"github.com/Loc-Leonard/Diploma/internal/inspector"
 	"github.com/Loc-Leonard/Diploma/internal/models"
 )
 
@@ -28,6 +30,7 @@ func main() {
 		&models.WorkItem{},
 		&models.WorkReport{},
 		&models.MaterialDelivery{},
+		&models.Inspection{},
 	); err != nil {
 		log.Printf("auto migrate failed: %v", err)
 	}
@@ -48,6 +51,7 @@ func main() {
 	admin.RegisterRoutes(r, database)
 	customer.RegisterRoutes(r, database)
 	foreman.RegisterRoutes(r, database)
+	inspector.RegisterRoutes(r, database)
 
 	if err := r.Run(":8080"); err != nil {
 		log.Fatal(err)
@@ -94,6 +98,10 @@ func seedSampleData(db *gorm.DB) {
 		log.Println("no foreman found for seeding sample data")
 		return
 	}
+	var inspector models.User
+	if err := db.Where("role = ?", models.RoleInspector).First(&inspector).Error; err != nil {
+		log.Println("no inspector found for seeding sample inpections")
+	}
 
 	// 3. проверяем, нет ли уже объекта
 	var count int64
@@ -114,9 +122,33 @@ func seedSampleData(db *gorm.DB) {
 		Lng:                   37.618423,
 		CustomerControlUserID: customer.ID,
 		ForemanUserID:         foreman.ID,
+		InspectorUserID:       inspector.ID,
 	}
 
 	if err := db.Create(&obj).Error; err != nil {
 		log.Printf("failed to create sample object: %v", err)
+	}
+
+	if inspector.ID != 0 {
+		now := time.Now()
+		insp := []models.Inspection{
+			{
+				ObjectID:    obj.ID,
+				InspectorID: inspector.ID,
+				Status:      models.InspectionStatusPlanned,
+				PlannedAt:   now.AddDate(0, 0, 3),
+				IssuesOpen:  0,
+			},
+			{
+				ObjectID:    obj.ID,
+				InspectorID: inspector.ID,
+				Status:      models.InspectionStatusOverdue,
+				PlannedAt:   now.AddDate(0, 0, -2),
+				IssuesOpen:  3,
+			},
+		}
+		if err := db.Create(&insp).Error; err != nil {
+			log.Printf("failed to create sample inspections: %v", err)
+		}
 	}
 }
