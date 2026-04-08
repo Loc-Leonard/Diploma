@@ -28,6 +28,7 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 		gr.GET("/inspectors-list", h.InspectorsList)
 
 		gr.POST("/objects", h.CreateObject)
+		gr.POST("/objects/:id/activate", h.ActivateObject)
 	}
 }
 
@@ -294,6 +295,79 @@ func (h *Handler) DashboardForemen(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, resp)
+}
+
+type ActivateObjectRequest struct {
+	ForemanUserID   uint    `json:"foreman_user_id" binding:"required"`
+	InspectorUserID uint    `json:"inspector_user_id" binding:"required"`
+	ChecklistJSON   string  `json:"checklist_json" binding:"required"`
+	ActFilePath     *string `json:"act_file_path"`
+}
+
+// POST /customer/objects/:id/activate
+func (h *Handler) ActivateObject(c *gin.Context) {
+	customerID := auth.UserIDFromContext(c)
+	if customerID == 0 {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	id := c.Param("id")
+
+	var obj models.Object
+	if err := h.db.
+		Where("id = ? AND customer_control_user_id = ?", id, customerID).
+		First(&obj).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "object not found"})
+		return
+	}
+
+	if obj.Status != models.ObjectStatusPlanned {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "object is not in PLANNED status"})
+		return
+	}
+
+	var req ActivateObjectRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// проверяем, что прораб существует и имеет роль FOREMAN
+	var foreman models.User
+	if err := h.db.
+		Where("id = ? AND role = ?", req.ForemanUserID, models.RoleForeman).
+		First(&foreman).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid foreman"})
+		return
+	}
+
+	// проверяем инспектора
+	var inspector models.User
+	if err := h.db.
+		Where("id = ? AND role = ?", req.InspectorUserID, models.RoleInspector).
+		First(&inspector).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid inspector"})
+		return
+	}
+
+	obj.ForemanUserID = req.ForemanUserID
+	obj.InspectorUserID = req.InspectorUserID
+	obj.InitChecklistJSON = req.ChecklistJSON
+
+	if req.ActFilePath != nil {
+		obj.InitActFilePath = *req.ActFilePath
+	}
+
+	// пока без шага WAITING_INSPECTOR_CONFIRMATION — сразу ACTIVE
+	obj.Status = models.ObjectStatusActive
+
+	if err := h.db.Save(&obj).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "db error"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "activated"})
 }
 
 // for tests

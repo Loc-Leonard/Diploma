@@ -101,3 +101,14 @@ func UserIDFromContext(c *gin.Context) uint {
 	id, _ := v.(uint)
 	return id
 }
+
+func InspectorOnly() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		roleVal, ok := c.Get("role")
+		if !ok || roleVal.(string) != string(models.RoleInspector) {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Inspector only"})
+			return
+		}
+		c.Next()
+	}
+}

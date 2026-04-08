@@ -107,7 +107,17 @@
               </div>
 
               <div class="object-actions">
-                <button class="secondary-btn">Перейти</button>
+                <button 
+                  v-if="obj.status === 'PLANNED'"
+                  class = "primary-btn"
+                  @click="openActivateForm(obj.id)">
+                  Активировать
+                </button>
+                <button
+                  v-else
+                  class="secondary-btn">
+                  Перейти
+                </button>
               </div>
             </div>
 
@@ -182,6 +192,77 @@
           </div>
         </div>
       </section>
+      <div
+        v-if="activatingObjectId !== null"
+        class="activate-panel">
+        <div class="activate-card">
+          <h2>Активация объекта #{{ activatingObjectId }}</h2>
+          <div class="activate-grid">
+            <div class="form-field">
+              <label>Прораб</label>
+              <select
+                v-model.number="activateForm.foreman_user_id"
+                :disabled="activateLoading">
+                <option :value="null">Выберите прораба</option>
+                <option
+                  v-for="f in foremenSelect"
+                  :key="f.id"
+                  :value="f.id">
+                  {{ f.full_name }}
+                </option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label>Инспектор</label>
+              <select
+                v-model.number="activateForm.inspector_user_id"
+                :disabled="activateLoading">
+                <option :value="null">Выберите инспектора</option>
+                <option
+                  v-for="i in inspectorsSelect"
+                  :key="i.id"
+                  :value="i.id">
+                  {{ i.full_name }}
+                </option>
+              </select>
+            </div>
+          </div>
+          <div class="form-field">
+            <label>Чек-лист открытия (текст/JSON)</label>
+            <textarea
+              v-model="activateForm.checklist_json"
+              rows="4"
+              :disabled="activateLoading"
+            />
+          </div>
+          <div class="form-field">
+            <label>Путь к файлу акта (пока строка)</label>
+            <input
+              v-model="activateForm.act_file_path"
+              type="text"
+              placeholder="/files/acts/act-1.pdf"
+              :disabled="activateLoading"/>
+          </div>
+          <div v-if="activateError" class="state state--error">
+            {{ activateError }}
+          </div>
+          <div class="activate-actions">
+            <button
+              class="secondary-btn"
+              type="button"
+              @click="cancelActivate">
+              Отмена
+            </button>
+            <button
+              class="primary-btn"
+              type="button"
+              @click="submitActivate"
+              :disabled="activateLoading">
+              {{ activateLoading ? 'Активируем...' : 'Активировать' }}
+            </button>
+          </div>
+        </div>
+      </div>
     </main>
   </div>
 </template>
@@ -243,8 +324,35 @@ type DashboardForeman = {
   } | null
 }
 
-// ==== Состояние ====
+type SimpleUserDTO = {
+  id: number
+  full_name: string
+  city?: string
+}
+type ActivateForm = {
+  foreman_user_id: number | null
+  inspector_user_id: number | null
+  checklist_json: string
+  act_file_path: string
+}
 
+// ==== Состояние ====
+const foremenSelect = ref<SimpleUserDTO[]>([])
+const inspectorsSelect = ref<SimpleUserDTO[]>([])
+const loadingRefs = ref({
+  foremen: false,
+  inpectors: false,
+})
+const activatingObjectId = ref<number | null>(null)
+const activateForm = ref<ActivateForm>({
+  foreman_user_id: null,
+  inspector_user_id: null,
+  checklist_json: '',
+  act_file_path: '',
+})
+const activateLoading = ref(false)
+const activateError = ref<string | null>(null)
+const activateSuccess = ref<string | null>(null)
 const objects = ref<DashboardObject[]>([])
 const objectsLoading = ref(false)
 const objectsError = ref<string | null>(null)
@@ -298,6 +406,40 @@ async function fetchObjects() {
     objectsLoading.value = false
   }
 }
+async function fetchForemenSelect(){
+  loadingRefs.value.foremen = true
+  try {
+    const res = await fetch(`${API_BASE}/customer/foremen-list`, {
+      headers: { Authorization: `Bearer ${auth.token}` },
+    })
+    if (!res.ok){
+      throw new Error('Ошибка загрузки прорабов')
+    }
+    foremenSelect.value = await res.json()
+  } catch (e) {
+    console.error(e)
+  } finally {
+    loadingRefs.value.foremen = false
+  }
+}
+
+async function fetchInspectorSelect() {
+  loadingRefs.value.inpectors = true
+  try {
+    const res = await fetch(`${API_BASE}/customer/inspectors-list`, {
+      headers: { Authorization: `Bearer ${auth.token}` },
+    })
+    if (!res.ok) {
+      throw new Error('ошибка загрузки инспекторов')
+    }
+    inspectorsSelect.value = await res.json()
+  } catch (e) {
+    console.error(e)
+  } finally {
+    loadingRefs.value.inpectors = false
+  }
+  
+}
 
 async function fetchForemen() {
   foremenLoading.value = true
@@ -328,6 +470,8 @@ async function fetchForemen() {
 onMounted(() => {
   fetchObjects()
   fetchForemen()
+  fetchForemenSelect()
+  fetchInspectorSelect()
 })
 
 // Подгружать объекты при изменении фильтров (по-хорошему — с debounce)
@@ -375,6 +519,74 @@ function statusClass(status: DashboardObjectStatus) {
       status === 'WAITING_INSPECTOR_CONFIRMATION',
     'status-chip--active': status === 'ACTIVE',
     'status-chip--finished': status === 'FINISHED',
+  }
+}
+
+function openActivateForm(objectId: number) {
+  activatingObjectId.value = objectId
+  activateError.value = null
+  activateSuccess.value = null
+  activateForm.value = {
+    foreman_user_id: null,
+    inspector_user_id: null,
+    checklist_json: '',
+    act_file_path: '',
+  }
+}
+
+function cancelActivate() {
+  activatingObjectId.value = null
+}
+
+async function submitActivate() {
+  if (!activatingObjectId.value) return
+
+  activateError.value = null
+  activateSuccess.value = null
+
+  if (!activateForm.value.foreman_user_id || !activateForm.value.inspector_user_id) {
+    activateError.value = 'Выберите прораба и инспектора'
+    return
+  }
+  if (!activateForm.value.checklist_json.trim()) {
+    activateError.value = 'Заполните чек-лист'
+    return
+  }
+
+  activateLoading.value = true
+  try {
+    const body = {
+      foreman_user_id: activateForm.value.foreman_user_id,
+      inspector_user_id: activateForm.value.inspector_user_id,
+      checklist_json: activateForm.value.checklist_json,
+      act_file_path: activateForm.value.act_file_path || undefined,
+    }
+
+    const res = await fetch(
+      `${API_BASE}/customer/objects/${activatingObjectId.value}/activate`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${auth.token}`,
+        },
+        body: JSON.stringify(body),
+      },
+    )
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      console.log('activate error', res.status, data)
+      throw new Error(data.error || 'Ошибка активации объекта')
+    }
+
+    activateSuccess.value = 'Объект активирован'
+    await fetchObjects()
+    activatingObjectId.value = null
+  } catch (e: any) {
+    activateError.value = e.message || 'Ошибка'
+  } finally {
+    activateLoading.value = false
   }
 }
 </script>
@@ -714,5 +926,88 @@ function statusClass(status: DashboardObjectStatus) {
   color: #9ca3af;
   font-size: 13px;
   margin-top: 8px;
+}
+.activate-panel {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.65);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+  z-index: 40;
+}
+
+.activate-card {
+  width: 100%;
+  max-width: 720px;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 20px 22px 18px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.25);
+  box-sizing: border-box;
+}
+
+.activate-card h2 {
+  margin: 0 0 12px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.activate-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+  margin-bottom: 12px;
+}
+
+.activate-card .form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.activate-card label {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.activate-card select,
+.activate-card textarea,
+.activate-card input {
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  padding: 7px 10px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+  background-color: #f9fafb;
+}
+
+.activate-card select:focus,
+.activate-card textarea:focus,
+.activate-card input:focus {
+  border-color: #a5b4fc;
+  box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.35);
+  background-color: #ffffff;
+}
+
+.activate-card textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.activate-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.state--success {
+  margin-top: 6px;
+  font-size: 13px;
+  color: #16a34a;
 }
 </style>
