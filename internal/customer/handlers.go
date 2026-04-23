@@ -100,6 +100,8 @@ type DashboardObjectDTO struct {
 
 	Lat float64 `json:"lat"`
 	Lng float64 `json:"lng"`
+
+	ActivationRejectReason string `json:"activation_reject_reason"`
 }
 
 // DTO прораба
@@ -209,16 +211,17 @@ func (h *Handler) DashboardObjects(c *gin.Context) {
 	resp := make([]DashboardObjectDTO, 0, len(objects))
 	for _, o := range objects {
 		dto := DashboardObjectDTO{
-			ID:               o.ID,
-			Name:             o.Name,
-			City:             o.City,
-			Address:          o.Address,
-			Status:           o.Status,
-			Progress:         0, // потом посчитаем
-			PlannedStartDate: o.PlannedStartDate,
-			PlannedEndDate:   o.PlannedEndDate,
-			Lat:              o.Lat,
-			Lng:              o.Lng,
+			ID:                     o.ID,
+			Name:                   o.Name,
+			City:                   o.City,
+			Address:                o.Address,
+			Status:                 o.Status,
+			Progress:               0, // потом посчитаем
+			PlannedStartDate:       o.PlannedStartDate,
+			PlannedEndDate:         o.PlannedEndDate,
+			Lat:                    o.Lat,
+			Lng:                    o.Lng,
+			ActivationRejectReason: o.ActivationRejectReason,
 		}
 
 		if f, ok := foremenMap[o.ForemanUserID]; ok {
@@ -298,10 +301,10 @@ func (h *Handler) DashboardForemen(c *gin.Context) {
 }
 
 type ActivateObjectRequest struct {
-	ForemanUserID   uint    `json:"foreman_user_id" binding:"required"`
-	InspectorUserID uint    `json:"inspector_user_id" binding:"required"`
-	ChecklistJSON   string  `json:"checklist_json" binding:"required"`
-	ActFilePath     *string `json:"act_file_path"`
+	// ForemanUserID   uint    `json:"foreman_user_id" binding:"required"`
+	// InspectorUserID uint    `json:"inspector_user_id" binding:"required"`
+	ChecklistJSON string  `json:"checklist_json" binding:"required"`
+	ActFilePath   *string `json:"act_file_path"`
 }
 
 // POST /customer/objects/:id/activate
@@ -333,41 +336,42 @@ func (h *Handler) ActivateObject(c *gin.Context) {
 		return
 	}
 
-	// проверяем, что прораб существует и имеет роль FOREMAN
-	var foreman models.User
-	if err := h.db.
-		Where("id = ? AND role = ?", req.ForemanUserID, models.RoleForeman).
-		First(&foreman).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid foreman"})
-		return
-	}
+	// // проверяем, что прораб существует и имеет роль FOREMAN
+	// var foreman models.User
+	// if err := h.db.
+	// 	Where("id = ? AND role = ?", req.ForemanUserID, models.RoleForeman).
+	// 	First(&foreman).Error; err != nil {
+	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "invalid foreman"})
+	// 	return
+	// }
 
-	// проверяем инспектора
-	var inspector models.User
-	if err := h.db.
-		Where("id = ? AND role = ?", req.InspectorUserID, models.RoleInspector).
-		First(&inspector).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid inspector"})
-		return
-	}
+	// // проверяем инспектора
+	// var inspector models.User
+	// if err := h.db.
+	// 	Where("id = ? AND role = ?", req.InspectorUserID, models.RoleInspector).
+	// 	First(&inspector).Error; err != nil {
+	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "invalid inspector"})
+	// 	return
+	// }
 
-	obj.ForemanUserID = req.ForemanUserID
-	obj.InspectorUserID = req.InspectorUserID
+	// obj.ForemanUserID = req.ForemanUserID
+	// obj.InspectorUserID = req.InspectorUserID
 	obj.InitChecklistJSON = req.ChecklistJSON
 
 	if req.ActFilePath != nil {
 		obj.InitActFilePath = *req.ActFilePath
 	}
 
-	// пока без шага WAITING_INSPECTOR_CONFIRMATION — сразу ACTIVE
-	obj.Status = models.ObjectStatusActive
+	obj.ActivationRejectReason = ""
+	obj.ActivationReviewedAt = nil
+	obj.Status = models.ObjectStatusWaitingInspectorConfirmation
 
 	if err := h.db.Save(&obj).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "db error"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"status": "activated"})
+	c.JSON(http.StatusOK, gin.H{"status": "sent_for_inspector_confirmation"})
 }
 
 // for tests
