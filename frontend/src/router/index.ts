@@ -59,11 +59,17 @@ const routes: RouteRecordRaw[] = [
     redirect: '/login',
   },
   {
-  path: '/inspector/checks',
-  name: 'inspector-checks',
-  component: InspectorDashboardView,
-  meta: { requiresAuth: true, inspectorOnly: true },
-},
+    path: '/inspector/objects',
+    name: 'inspector-objects',
+    component: () => import('../views/InspectorObjectsView.vue'),
+    meta: { requiresAuth: true, inspectorOnly: true },
+  },
+  {
+    path: '/inspector/checks',
+    name: 'inspector-checks',
+    component: InspectorDashboardView,
+    meta: { requiresAuth: true, inspectorOnly: true },
+  },
 ]
 
 const router = createRouter({
