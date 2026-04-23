@@ -40,7 +40,7 @@ jobs:
             sleep 3
           done
 
-      - name: Run customer tests
+      - name: Run unit tests
         env:
           TEST_DB_DSN: postgres://user:pass@localhost:5432/journal?sslmode=disable
         run: |
