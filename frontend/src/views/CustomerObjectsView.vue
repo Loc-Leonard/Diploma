@@ -16,8 +16,8 @@
 
       <div class="sidebar-bottom">
         <div class="role-badge">
-            <span class="role-dot role-dot--customer"></span>
-            <span>Заказчик</span>
+          <span class="role-dot role-dot--customer"></span>
+          <span>Заказчик</span>
         </div>
         <button class="logout-button" @click="logout">Выйти</button>
       </div>
@@ -26,10 +26,14 @@
     <!-- Центральная часть: Объекты + Прорабы -->
     <main class="customer-main">
       <header class="customer-header">
-        <h1 class="customer-title">Объекты</h1>
-        <button class="primary-btn" @click="goCreateObject"> Создать объект </button>
+        <div class="customer-header-left">
+          <h1 class="customer-title">Объекты</h1>
+          <button class="primary-btn" @click="goCreateObject">
+            Создать объект
+          </button>
+        </div>
+
         <div class="customer-header-right">
-          <!-- Поиск по названию объекта -->
           <div class="search-wrapper">
             <input
               v-model="search"
@@ -82,7 +86,9 @@
               <div class="object-card-main">
                 <div>
                   <div class="object-name">{{ obj.name }}</div>
-                  <div class="object-city">{{ obj.city }}, {{ obj.address }}</div>
+                  <div class="object-city">
+                    {{ obj.city }}, {{ obj.address }}
+                  </div>
                 </div>
                 <span class="status-chip" :class="statusClass(obj.status)">
                   {{ statusLabel(obj.status) }}
@@ -106,16 +112,23 @@
                 </div>
               </div>
 
+              <div
+                v-if="obj.activation_reject_reason"
+                class="reject-notice"
+              >
+                <span class="reject-notice-label">Причина отклонения:</span>
+                <span>{{ obj.activation_reject_reason }}</span>
+              </div>
+
               <div class="object-actions">
-                <button 
+                <button
                   v-if="obj.status === 'PLANNED'"
-                  class = "primary-btn"
-                  @click="openActivateForm(obj.id)">
+                  class="primary-btn"
+                  @click="openActivateForm(obj.id)"
+                >
                   Активировать
                 </button>
-                <button
-                  v-else
-                  class="secondary-btn">
+                <button v-else class="secondary-btn">
                   Перейти
                 </button>
               </div>
@@ -162,7 +175,6 @@
           <div class="column-header">
             <h2>Карта</h2>
             <div class="filters">
-              <!-- пока те же фильтры, что и над объектами -->
               <select v-model="statusFilter">
                 <option value="">Статус</option>
                 <option value="PLANNED">Запланирован</option>
@@ -186,47 +198,19 @@
             </div>
           </div>
 
-          <!-- Здесь позже подключим Leaflet/OSM -->
           <div class="map-placeholder">
             Здесь будет карта с объектами
           </div>
         </div>
       </section>
+
+      <!-- Панель активации -->
       <div
         v-if="activatingObjectId !== null"
-        class="activate-panel">
+        class="activate-panel"
+      >
         <div class="activate-card">
           <h2>Активация объекта #{{ activatingObjectId }}</h2>
-          <div class="activate-grid">
-            <div class="form-field">
-              <label>Прораб</label>
-              <select
-                v-model.number="activateForm.foreman_user_id"
-                :disabled="activateLoading">
-                <option :value="null">Выберите прораба</option>
-                <option
-                  v-for="f in foremenSelect"
-                  :key="f.id"
-                  :value="f.id">
-                  {{ f.full_name }}
-                </option>
-              </select>
-            </div>
-            <div class="form-field">
-              <label>Инспектор</label>
-              <select
-                v-model.number="activateForm.inspector_user_id"
-                :disabled="activateLoading">
-                <option :value="null">Выберите инспектора</option>
-                <option
-                  v-for="i in inspectorsSelect"
-                  :key="i.id"
-                  :value="i.id">
-                  {{ i.full_name }}
-                </option>
-              </select>
-            </div>
-          </div>
           <div class="form-field">
             <label>Чек-лист открытия (текст/JSON)</label>
             <textarea
@@ -241,7 +225,8 @@
               v-model="activateForm.act_file_path"
               type="text"
               placeholder="/files/acts/act-1.pdf"
-              :disabled="activateLoading"/>
+              :disabled="activateLoading"
+            />
           </div>
           <div v-if="activateError" class="state state--error">
             {{ activateError }}
@@ -250,14 +235,16 @@
             <button
               class="secondary-btn"
               type="button"
-              @click="cancelActivate">
+              @click="cancelActivate"
+            >
               Отмена
             </button>
             <button
               class="primary-btn"
               type="button"
               @click="submitActivate"
-              :disabled="activateLoading">
+              :disabled="activateLoading"
+            >
               {{ activateLoading ? 'Активируем...' : 'Активировать' }}
             </button>
           </div>
@@ -281,8 +268,7 @@ function goCreateObject() {
   router.push({ name: 'customer-object-create' })
 }
 
-// ==== Типы данных (под API бэка) ====
-// Приветствие в левом верхнем углу
+// Приветствие
 const greeting = computed(() => {
   if (!auth.isAuthenticated) {
     return 'Добрый день'
@@ -312,6 +298,7 @@ type DashboardObject = {
   planned_end_date?: string | null
   lat: number
   lng: number
+  activation_reject_reason?: string | null
 }
 
 type DashboardForeman = {
@@ -324,35 +311,21 @@ type DashboardForeman = {
   } | null
 }
 
-type SimpleUserDTO = {
-  id: number
-  full_name: string
-  city?: string
-}
 type ActivateForm = {
-  foreman_user_id: number | null
-  inspector_user_id: number | null
   checklist_json: string
   act_file_path: string
 }
 
 // ==== Состояние ====
-const foremenSelect = ref<SimpleUserDTO[]>([])
-const inspectorsSelect = ref<SimpleUserDTO[]>([])
-const loadingRefs = ref({
-  foremen: false,
-  inpectors: false,
-})
 const activatingObjectId = ref<number | null>(null)
 const activateForm = ref<ActivateForm>({
-  foreman_user_id: null,
-  inspector_user_id: null,
   checklist_json: '',
   act_file_path: '',
 })
 const activateLoading = ref(false)
 const activateError = ref<string | null>(null)
 const activateSuccess = ref<string | null>(null)
+
 const objects = ref<DashboardObject[]>([])
 const objectsLoading = ref(false)
 const objectsError = ref<string | null>(null)
@@ -366,15 +339,13 @@ const search = ref('')
 const statusFilter = ref<string>('')
 const cityFilter = ref<string>('')
 
-// ==== Навигация ====
-
+// Навигация
 function logout() {
   auth.clearAuth()
   router.push({ name: 'login' })
 }
 
 // ==== Загрузка данных ====
-
 async function fetchObjects() {
   objectsLoading.value = true
   objectsError.value = null
@@ -406,40 +377,6 @@ async function fetchObjects() {
     objectsLoading.value = false
   }
 }
-async function fetchForemenSelect(){
-  loadingRefs.value.foremen = true
-  try {
-    const res = await fetch(`${API_BASE}/customer/foremen-list`, {
-      headers: { Authorization: `Bearer ${auth.token}` },
-    })
-    if (!res.ok){
-      throw new Error('Ошибка загрузки прорабов')
-    }
-    foremenSelect.value = await res.json()
-  } catch (e) {
-    console.error(e)
-  } finally {
-    loadingRefs.value.foremen = false
-  }
-}
-
-async function fetchInspectorSelect() {
-  loadingRefs.value.inpectors = true
-  try {
-    const res = await fetch(`${API_BASE}/customer/inspectors-list`, {
-      headers: { Authorization: `Bearer ${auth.token}` },
-    })
-    if (!res.ok) {
-      throw new Error('ошибка загрузки инспекторов')
-    }
-    inspectorsSelect.value = await res.json()
-  } catch (e) {
-    console.error(e)
-  } finally {
-    loadingRefs.value.inpectors = false
-  }
-  
-}
 
 async function fetchForemen() {
   foremenLoading.value = true
@@ -470,17 +407,14 @@ async function fetchForemen() {
 onMounted(() => {
   fetchObjects()
   fetchForemen()
-  fetchForemenSelect()
-  fetchInspectorSelect()
 })
 
-// Подгружать объекты при изменении фильтров (по-хорошему — с debounce)
+// Подгружать объекты при изменении фильтров
 watch([statusFilter, cityFilter], () => {
   fetchObjects()
 })
 
 // ==== Вычисления для отображения ====
-
 const filteredObjects = computed(() => {
   const q = search.value.trim().toLowerCase()
   if (!q) return objects.value
@@ -527,8 +461,6 @@ function openActivateForm(objectId: number) {
   activateError.value = null
   activateSuccess.value = null
   activateForm.value = {
-    foreman_user_id: null,
-    inspector_user_id: null,
     checklist_json: '',
     act_file_path: '',
   }
@@ -544,10 +476,6 @@ async function submitActivate() {
   activateError.value = null
   activateSuccess.value = null
 
-  if (!activateForm.value.foreman_user_id || !activateForm.value.inspector_user_id) {
-    activateError.value = 'Выберите прораба и инспектора'
-    return
-  }
   if (!activateForm.value.checklist_json.trim()) {
     activateError.value = 'Заполните чек-лист'
     return
@@ -556,8 +484,6 @@ async function submitActivate() {
   activateLoading.value = true
   try {
     const body = {
-      foreman_user_id: activateForm.value.foreman_user_id,
-      inspector_user_id: activateForm.value.inspector_user_id,
       checklist_json: activateForm.value.checklist_json,
       act_file_path: activateForm.value.act_file_path || undefined,
     }
@@ -580,7 +506,7 @@ async function submitActivate() {
       throw new Error(data.error || 'Ошибка активации объекта')
     }
 
-    activateSuccess.value = 'Объект активирован'
+    activateSuccess.value = 'Объект отправлен на подтверждение'
     await fetchObjects()
     activatingObjectId.value = null
   } catch (e: any) {
@@ -596,6 +522,7 @@ async function submitActivate() {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .primary-btn {
@@ -610,11 +537,9 @@ async function submitActivate() {
 
 .customer-layout {
   display: grid;
-  /* меню 206, центр, карта 445 */
   grid-template-columns: 206px auto 1fr;
   min-height: 100vh;
   background: #f9fafb;
-  
 }
 
 /* Сайдбар */
@@ -706,9 +631,11 @@ async function submitActivate() {
 
 .customer-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: 16px;
   margin-bottom: 16px;
+  flex-wrap: wrap;
 }
 
 .customer-title {
@@ -722,6 +649,7 @@ async function submitActivate() {
   display: flex;
   align-items: center;
   gap: 12px;
+  margin-left: auto;
 }
 
 .search-wrapper {
@@ -738,11 +666,12 @@ async function submitActivate() {
   font-size: 14px;
 }
 
-/* Дашборд: только ширины колонок */
+/* Дашборд */
 .dashboard {
   display: grid;
-  grid-template-columns: 359px 292px 445px; /* как в макете */
+  grid-template-columns: minmax(320px, 1.2fr) minmax(260px, 0.9fr) minmax(320px, 1.1fr);
   gap: 16px;
+  align-items: start;
 }
 
 /* Колонки */
@@ -760,7 +689,9 @@ async function submitActivate() {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 10px;
   margin-bottom: 8px;
+  flex-wrap: wrap;
 }
 
 .column-header h2 {
@@ -772,6 +703,7 @@ async function submitActivate() {
 .filters {
   display: flex;
   gap: 6px;
+  flex-wrap: wrap;
 }
 
 .filters select {
@@ -780,6 +712,7 @@ async function submitActivate() {
   border: 1px solid #d1d5db;
   background: #f9fafb;
   font-size: 12px;
+  min-width: 120px;
 }
 
 /* Состояние */
@@ -927,6 +860,7 @@ async function submitActivate() {
   font-size: 13px;
   margin-top: 8px;
 }
+
 .activate-panel {
   position: fixed;
   inset: 0;
@@ -955,13 +889,6 @@ async function submitActivate() {
   color: #111827;
 }
 
-.activate-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px 16px;
-  margin-bottom: 12px;
-}
-
 .activate-card .form-field {
   display: flex;
   flex-direction: column;
@@ -973,7 +900,6 @@ async function submitActivate() {
   color: #6b7280;
 }
 
-.activate-card select,
 .activate-card textarea,
 .activate-card input {
   border-radius: 10px;
@@ -981,11 +907,13 @@ async function submitActivate() {
   padding: 7px 10px;
   font-size: 14px;
   outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background-color 0.15s ease;
   background-color: #f9fafb;
 }
 
-.activate-card select:focus,
 .activate-card textarea:focus,
 .activate-card input:focus {
   border-color: #a5b4fc;
@@ -1009,5 +937,119 @@ async function submitActivate() {
   margin-top: 6px;
   font-size: 13px;
   color: #16a34a;
+}
+
+.reject-notice {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #92400e;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.reject-notice-label {
+  font-weight: 600;
+  color: #78350f;
+}
+
+/* Ноутбук / узкий desktop */
+@media (max-width: 1400px) {
+  .dashboard {
+    grid-template-columns: minmax(300px, 1fr) minmax(260px, 0.9fr);
+  }
+
+  .column--map {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Планшет */
+@media (max-width: 1100px) {
+  .customer-layout {
+    grid-template-columns: 260px 1fr;
+  }
+
+  .customer-main {
+    grid-column: 2;
+    margin-left: 0;
+    padding: 20px 16px;
+  }
+
+  .dashboard {
+    grid-template-columns: 1fr;
+  }
+
+  .column--objects,
+  .column--foremen,
+  .column--map {
+    grid-column: auto;
+  }
+
+  .customer-header-right {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .search-wrapper {
+    max-width: 100%;
+  }
+}
+
+/* Мобильный */
+@media (max-width: 768px) {
+  .customer-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    width: 100%;
+    grid-column: 1;
+    border-right: none;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 16px;
+  }
+
+  .customer-main {
+    grid-column: 1;
+    padding: 16px;
+  }
+
+  .customer-header-left {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .primary-btn {
+    white-space: nowrap;
+  }
+
+  .filters {
+    width: 100%;
+  }
+
+  .filters select {
+    flex: 1 1 140px;
+    min-width: 0;
+  }
+
+  .object-card-main {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .object-actions {
+    justify-content: flex-start;
+  }
+
+  .activate-card {
+    max-width: 100%;
+    padding: 16px;
+  }
 }
 </style>
