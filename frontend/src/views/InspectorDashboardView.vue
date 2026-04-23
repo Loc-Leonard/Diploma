@@ -1,15 +1,29 @@
 <template>
   <div class="customer-layout">
-    <!-- Сайдбар -->
     <aside class="sidebar">
       <div class="sidebar-top">
         <div class="sidebar-logo">{{ greeting }}</div>
 
         <nav class="sidebar-nav">
-          <button class="nav-item nav-item--active">Проверки</button>
+          <button
+            class="nav-item"
+            :class="{ 'nav-item--active': isChecksActive }"
+            @click="goToChecks"
+          >
+            Проверки
+          </button>
+
           <button class="nav-item" disabled>График</button>
           <button class="nav-item" disabled>Замечания</button>
-          <button class="nav-item" disabled>Объекты</button>
+
+          <button
+            class="nav-item"
+            :class="{ 'nav-item--active': isObjectsActive }"
+            @click="goToObjects"
+          >
+            Объекты
+          </button>
+
           <button class="nav-item" disabled>Справочники</button>
         </nav>
       </div>
@@ -23,7 +37,6 @@
       </div>
     </aside>
 
-    <!-- Основной контент -->
     <main class="customer-main">
       <header class="customer-header">
         <h1 class="customer-title">Проверки</h1>
@@ -40,7 +53,6 @@
       </header>
 
       <section class="dashboard">
-        <!-- Колонка Проверки -->
         <div class="column column--objects">
           <div class="column-header">
             <h2>Проверки</h2>
@@ -83,6 +95,7 @@
                     {{ check.city }}, {{ check.address }}
                   </div>
                 </div>
+
                 <span class="status-chip" :class="statusClass(check.status)">
                   {{ statusLabel(check.status) }}
                 </span>
@@ -101,9 +114,7 @@
               </div>
 
               <div class="object-actions">
-                <button class="secondary-btn">
-                  Перейти
-                </button>
+                <button class="secondary-btn">Перейти</button>
               </div>
             </div>
 
@@ -113,7 +124,6 @@
           </div>
         </div>
 
-        <!-- Колонка Объекты инспектора -->
         <div class="column column--foremen">
           <div class="column-header">
             <h2>Объекты</h2>
@@ -145,7 +155,9 @@
               <div class="foreman-object">
                 Открытых замечаний: {{ obj.open_issues }}
               </div>
-              <button class="secondary-btn">Перейти</button>
+              <button class="secondary-btn" @click="goToObjects">
+                Перейти
+              </button>
             </div>
 
             <div v-if="!objects.length" class="state">
@@ -154,7 +166,6 @@
           </div>
         </div>
 
-        <!-- Колонка Карта -->
         <div class="column column--map">
           <div class="column-header">
             <h2>Карта</h2>
@@ -191,18 +202,22 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
 const API_BASE = 'http://localhost:8080'
 
 const auth = useAuthStore()
 const router = useRouter()
+const route = useRoute()
 
 const greeting = computed(() => {
   const u = auth.user
   return u?.full_name ? `Добрый день, ${u.full_name}` : 'Добрый день'
 })
+
+const isChecksActive = computed(() => route.name === 'inspector-checks')
+const isObjectsActive = computed(() => route.name === 'inspector-objects')
 
 type InspectionStatus =
   | 'PLANNED'
@@ -232,7 +247,6 @@ type DashboardInspectorObject = {
   open_issues: number
 }
 
-// состояние
 const checks = ref<DashboardInspection[]>([])
 const checksLoading = ref(false)
 const checksError = ref<string | null>(null)
@@ -245,6 +259,18 @@ const search = ref('')
 const statusFilter = ref<string>('')
 const cityFilter = ref<string>('')
 
+function goToChecks() {
+  if (route.name !== 'inspector-checks') {
+    router.push({ name: 'inspector-checks' })
+  }
+}
+
+function goToObjects() {
+  if (route.name !== 'inspector-objects') {
+    router.push({ name: 'inspector-objects' })
+  }
+}
+
 function logout() {
   auth.clearAuth()
   router.push({ name: 'login' })
@@ -253,6 +279,7 @@ function logout() {
 async function fetchChecks() {
   checksLoading.value = true
   checksError.value = null
+
   try {
     const params = new URLSearchParams()
     if (statusFilter.value) params.set('status', statusFilter.value)
@@ -283,6 +310,7 @@ async function fetchChecks() {
 async function fetchObjects() {
   objectsLoading.value = true
   objectsError.value = null
+
   try {
     const res = await fetch(`${API_BASE}/inspector/dashboard/objects`, {
       headers: {
@@ -315,6 +343,7 @@ watch([statusFilter, cityFilter], () => {
 const filteredChecks = computed(() => {
   const q = search.value.trim().toLowerCase()
   if (!q) return checks.value
+
   return checks.value.filter((c) =>
     c.object_name.toLowerCase().includes(q),
   )
@@ -365,7 +394,6 @@ function formatDate(iso: string) {
 </script>
 
 <style scoped>
-
 .customer-header-left {
   display: flex;
   align-items: center;
@@ -384,14 +412,11 @@ function formatDate(iso: string) {
 
 .customer-layout {
   display: grid;
-  /* меню 206, центр, карта 445 */
   grid-template-columns: 206px auto 1fr;
   min-height: 100vh;
   background: #f9fafb;
-  
 }
 
-/* Сайдбар */
 .sidebar {
   grid-column: 1;
   width: 206px;
@@ -470,7 +495,6 @@ function formatDate(iso: string) {
   background: #9524c9;
 }
 
-/* Центральная часть */
 .customer-main {
   grid-column: 2;
   padding: 20px 24px;
@@ -512,14 +536,12 @@ function formatDate(iso: string) {
   font-size: 14px;
 }
 
-/* Дашборд: только ширины колонок */
 .dashboard {
   display: grid;
-  grid-template-columns: 359px 292px 445px; /* как в макете */
+  grid-template-columns: 359px 292px 445px;
   gap: 16px;
 }
 
-/* Колонки */
 .column {
   background: #ffffff;
   border-radius: 16px;
@@ -556,7 +578,6 @@ function formatDate(iso: string) {
   font-size: 12px;
 }
 
-/* Состояние */
 .state {
   font-size: 13px;
   color: #6b7280;
@@ -566,7 +587,6 @@ function formatDate(iso: string) {
   color: #b91c1c;
 }
 
-/* Карточка объекта */
 .object-card {
   border-radius: 12px;
   border: 1px solid #e5e7eb;
@@ -617,24 +637,16 @@ function formatDate(iso: string) {
   color: #1d4ed8;
 }
 
+.status-chip--overdue {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
 .object-progress {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-top: 6px;
-}
-
-.progress-bar {
-  flex: 1;
-  height: 6px;
-  background: #e5e7eb;
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.progress-bar-fill {
-  height: 100%;
-  background: #4f46e5;
 }
 
 .progress-text {
@@ -668,7 +680,6 @@ function formatDate(iso: string) {
   cursor: pointer;
 }
 
-/* Карточка прораба */
 .foreman-card {
   border-radius: 12px;
   border: 1px solid #e5e7eb;
@@ -688,7 +699,6 @@ function formatDate(iso: string) {
   color: #6b7280;
 }
 
-/* Карта */
 .map-placeholder {
   flex: 1;
   border-radius: 12px;

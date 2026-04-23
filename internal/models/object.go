@@ -36,6 +36,9 @@ type Object struct {
 	InitChecklistJSON string `json:"init_checklist_json"`
 	InitActFilePath   string `json:"init_act_file_path"`
 
+	ActivationRejectReason string     `json:"activation_reject_reason"`
+	ActivationReviewedAt   *time.Time `json:"activation_reviewed_at"`
+
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
