@@ -1,33 +1,12 @@
 <template>
-  <div class="customer-layout">
-    <aside class="sidebar">
-      <div class="sidebar-top">
-        <div class="sidebar-logo">{{ greeting }}</div>
-        <nav class="sidebar-nav">
-          <button class="nav-item" :class="{ 'nav-item--active': isChecksActive }" @click="goToChecks">
-            Проверки
-          </button>
-          <button class="nav-item" disabled>График</button>
-          <button class="nav-item" disabled>Замечания</button>
-          <button class="nav-item" :class="{ 'nav-item--active': isObjectsActive }" @click="goToObjects">
-            <span>Объекты</span>
-            <span v-if="pendingCount > 0" class="nav-badge">{{ pendingCount }}</span>
-          </button>
-          <button class="nav-item" disabled>Справочники</button>
-        </nav>
-      </div>
-      <div class="sidebar-bottom">
-        <div class="role-badge">
-          <span class="role-dot role-dot--inspector"></span>
-          <span>Инспектор</span>
-        </div>
-        <button class="logout-button" @click="logout">Выйти</button>
-      </div>
-    </aside>
-
-    <main class="customer-main">
+  <div>
       <header class="customer-header">
-        <h1 class="customer-title">Объекты</h1>
+        <div class="customer-header-left">
+          <h1 class="customer-title">Объекты</h1>
+          <button class="map-btn" @click="showMap = true">
+            🗺 Показать на карте
+          </button>
+        </div>
         <div class="customer-header-right">
           <div class="search-wrapper">
             <input v-model="search" type="text" placeholder="Поиск по названию, городу, адресу" />
@@ -107,7 +86,6 @@
           </article>
         </div>
       </section>
-    </main>
 
     <!-- Модалка -->
     <Teleport to="body">
@@ -209,18 +187,36 @@
         </div>
       </div>
     </Teleport>
+    <!--MAP-->
+    <div v-if="showMap" class="modal-overlay" @click.self="showMap = false">
+      <div class="modal-card modal-card--map">
+        <div class="modal-map-header">
+          <h2>Объекты на карте</h2>
+          <button class="close-btn" @click="showMap = false">✕</button>
+        </div>
+        <div class="map-placeholder">
+          <div class="map-placeholder-inner">
+            <span class="map-icon">🗺</span>
+            <span>Здесь будет карта с объектами</span>
+            <span class="map-hint">
+              {{ filteredObjects.length }} Объектов для отображения
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, reactive } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
-
+import { useInspectorNotificationsStore } from '@/stores/inspectorNotifications'
+const notifications = useInspectorNotificationsStore()
 const API_BASE = 'http://localhost:8080'
 const auth = useAuthStore()
-const router = useRouter()
-const route = useRoute()
+const showMap = ref(false)
+
 
 type InspectorObjectStatus = 'PLANNED' | 'WAITING_INSPECTOR_CONFIRMATION' | 'ACTIVE' | 'FINISHED'
 
@@ -269,15 +265,9 @@ const modal = reactive({
   submitting: false,
 })
 
-const greeting = computed(() => {
-  if (!auth.isAuthenticated) return 'Добрый день'
-  return auth.user?.full_name ? `Добрый день, ${auth.user.full_name}` : 'Добрый день'
-})
 
-const isChecksActive = computed(() => route.name === 'inspector-checks')
-const isObjectsActive = computed(() => route.name === 'inspector-objects')
-const pendingCount = computed(() => objects.value.filter(o => o.status === 'WAITING_INSPECTOR_CONFIRMATION').length)
-const pendingObjects = computed(() => objects.value.filter(o => o.status === 'WAITING_INSPECTOR_CONFIRMATION'))
+
+const pendingObjects = notifications.pendingObjects
 
 const filteredObjects = computed(() => {
   const q = search.value.trim().toLowerCase()
@@ -370,10 +360,15 @@ async function submitDecision(decision: 'APPROVE' | 'REJECT') {
       body: JSON.stringify(body),
     })
 
-    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Ошибка отправки')
+    if (!res.ok) {
+      throw new Error((await res.json().catch(() => ({}))).error || 'Ошибка отправки')
+    }
 
     closeModal()
-    await fetchObjects()
+    await Promise.all([
+      fetchObjects(),
+      notifications.fetchPending(),
+    ])
   } catch (e: any) {
     modal.submitError = e.message || 'Ошибка'
   } finally {
@@ -386,16 +381,7 @@ function formatChecklist(json: string) {
   catch { return json }
 }
 
-function goToChecks() {
-  if (route.name !== 'inspector-checks') router.push({ name: 'inspector-checks' })
-}
-function goToObjects() {
-  if (route.name !== 'inspector-objects') router.push({ name: 'inspector-objects' })
-}
-function logout() {
-  auth.clearAuth()
-  router.push({ name: 'login' })
-}
+
 
 function statusLabel(status: InspectorObjectStatus) {
   const map: Record<InspectorObjectStatus, string> = {
@@ -426,93 +412,102 @@ onMounted(fetchObjects)
 </script>
 
 <style scoped>
-.customer-layout {
-  display: grid;
-  grid-template-columns: 206px auto 1fr;
-  min-height: 100vh;
-  background: #f9fafb;
-}
 
-.sidebar {
-  grid-column: 1;
-  width: 206px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 20px 18px;
-  background: #ffffff;
-  border-right: 1px solid #e5e7eb;
-}
-
-.sidebar-logo {
-  font-size: 20px;
-  font-weight: 700;
-  margin-bottom: 24px;
-}
-
-.sidebar-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.nav-item {
+.customer-header-left {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  text-align: left;
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: none;
-  background: transparent;
-  font-size: 14px;
-  color: #4b5563;
-  cursor: pointer;
+  gap: 10px;
+  flex-wrap: wrap;
 }
-.nav-item--active { background: #eef2ff; color: #4338ca; }
-.nav-item[disabled] { opacity: 0.5; cursor: default; }
 
-.nav-badge {
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
+.map-btn {
+  padding: 8px 16px;
   border-radius: 999px;
-  background: #dc2626;
-  color: #fff;
-  font-size: 12px;
-  display: inline-flex;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #374151;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.map-btn:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.modal-card--map {
+  width: 100%;
+  max-width: 800px;
+  padding: 20px 22px;
+}
+
+.modal-map-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.modal-map-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.close-btn:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.map-placeholder {
+  height: 420px;
+  border-radius: 12px;
+  border: 2px dashed #d1d5db;
+  background: #f9fafb;
+  display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.sidebar-bottom { display: flex; flex-direction: column; gap: 10px; }
-
-.role-badge {
-  display: inline-flex;
+.map-placeholder-inner {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: #6b7280;
+  gap: 8px;
+  color: #9ca3af;
+  font-size: 14px;
 }
 
-.role-dot { width: 10px; height: 10px; border-radius: 999px; }
-.role-dot--inspector { background: #9524c9; }
+.map-icon {
+  font-size: 40px;
+}
 
-.logout-button {
-  padding: 7px 16px;
-  border-radius: 999px;
-  border: 1px solid #e5e7eb;
+.map-hint {
+  font-size: 12px;
+  color: #d1d5db;
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 560px;
   background: #ffffff;
-  font-size: 13px;
-  color: #6b7280;
-  cursor: pointer;
-}
-
-.customer-main {
-  grid-column: 2;
-  padding: 20px 24px;
+  border-radius: 16px;
+  padding: 22px 24px 20px;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
   box-sizing: border-box;
-  margin-left: 35px;
 }
 
 .customer-header {
@@ -736,4 +731,5 @@ onMounted(fetchObjects)
 }
 .reject-btn:hover { background: #fecaca; }
 .reject-btn:disabled { opacity: 0.6; cursor: default; }
+
 </style>
