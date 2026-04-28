@@ -5,6 +5,7 @@ import AdminUsersView from '../views/AdminUsersView.vue'
 import CustomerObjectsView from '../views/CustomerObjectsView.vue'
 import { useAuthStore } from '../stores/auth'
 
+import InspectorLayout from '@/views/InspectorLayout.vue'
 import ForemanObjectView from '../views/ForemanObjectView.vue'
 import ForemanObjectsView from '../views/ForemanObjectsView.vue'
 import InspectorDashboardView from '../views/InspectorDashboardView.vue'
@@ -59,17 +60,26 @@ const routes: RouteRecordRaw[] = [
     redirect: '/login',
   },
   {
-    path: '/inspector/objects',
-    name: 'inspector-objects',
-    component: () => import('../views/InspectorObjectsView.vue'),
-    meta: { requiresAuth: true, inspectorOnly: true },
-  },
-  {
-    path: '/inspector/checks',
-    name: 'inspector-checks',
-    component: InspectorDashboardView,
-    meta: { requiresAuth: true, inspectorOnly: true },
-  },
+  path: '/inspector',
+  component: InspectorLayout,
+  meta: { requiresAuth: true, inspectorOnly: true },
+  children: [
+    {
+      path: '',
+      redirect: { name: 'inspector-checks' },
+    },
+    {
+      path: 'checks',
+      name: 'inspector-checks',
+      component: InspectorDashboardView,
+    },
+    {
+      path: 'objects',
+      name: 'inspector-objects',
+      component: () => import('../views/InspectorObjectsView.vue'),
+    },
+  ],
+},
 ]
 
 const router = createRouter({
