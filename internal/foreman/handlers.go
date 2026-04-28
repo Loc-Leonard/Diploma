@@ -1,6 +1,7 @@
 package foreman
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 
 	"github.com/Loc-Leonard/Diploma/internal/auth"
 	"github.com/Loc-Leonard/Diploma/internal/models"
+	"github.com/Loc-Leonard/Diploma/internal/objectcore"
 )
 
 type Handler struct {
@@ -75,33 +77,28 @@ type ForemanObjectDetailDTO struct {
 }
 
 // GET /foreman/objects/:id
-func (h *Handler) ObjectDetail(c *gin.Context) {
-	foremanID := auth.UserIDFromContext(c)
+func (h Handler) ObjectDetail(c *gin.Context) {
+	userID := auth.UserIDFromContext(c)
 	id := c.Param("id")
 
-	var obj models.Object
-	if err := h.db.
-		Where("id = ? AND foreman_user_id = ?", id, foremanID).
-		First(&obj).Error; err != nil {
+	obj, err := objectcore.LoadObjectForUser(h.db, id, userID, string(models.RoleForeman))
+	if errors.Is(err, objectcore.ErrNotFound) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "object not found"})
 		return
 	}
-
-	var items []models.WorkItem
-	if err := h.db.Where("object_id = ?", obj.ID).Order("id ASC").Find(&items).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "db error"})
+	if errors.Is(err, objectcore.ErrForbidden) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "access denied"})
 		return
 	}
 
-	c.JSON(http.StatusOK, ForemanObjectDetailDTO{
-		Object: ForemanObjectDTO{
-			ID:      obj.ID,
-			Name:    obj.Name,
-			City:    obj.City,
-			Address: obj.Address,
-			Status:  obj.Status,
-		},
-		WorkItems: items,
+	core := objectcore.BuildObjectCoreDTO(h.db, obj)
+
+	var items []models.WorkItem
+	h.db.Where("object_id = ?", obj.ID).Order("id ASC").Find(&items)
+
+	c.JSON(http.StatusOK, gin.H{
+		"object":     core,
+		"work_items": items,
 	})
 }
 
