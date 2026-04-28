@@ -1,10 +1,8 @@
 <template>
   <div class="customer-layout">
-    <!-- Левое меню -->
     <aside class="sidebar">
       <div class="sidebar-top">
         <div class="sidebar-logo">{{ greeting }}</div>
-
         <nav class="sidebar-nav">
           <button class="nav-item nav-item--active">Объекты</button>
           <button class="nav-item" disabled>График</button>
@@ -13,7 +11,6 @@
           <button class="nav-item" disabled>Справочники</button>
         </nav>
       </div>
-
       <div class="sidebar-bottom">
         <div class="role-badge">
           <span class="role-dot role-dot--customer"></span>
@@ -23,13 +20,15 @@
       </div>
     </aside>
 
-    <!-- Центральная часть: Объекты + Прорабы -->
     <main class="customer-main">
       <header class="customer-header">
         <div class="customer-header-left">
           <h1 class="customer-title">Объекты</h1>
           <button class="primary-btn" @click="goCreateObject">
             Создать объект
+          </button>
+          <button class="map-btn" @click="showMap = true">
+            🗺 Показать на карте
           </button>
         </div>
 
@@ -44,213 +43,137 @@
         </div>
       </header>
 
-      <section class="dashboard">
-        <!-- Колонка Объекты -->
-        <div class="column column--objects">
-          <div class="column-header">
-            <h2>Объекты</h2>
-            <div class="filters">
-              <select v-model="statusFilter">
-                <option value="">Статус</option>
-                <option value="PLANNED">Запланирован</option>
-                <option value="WAITING_INSPECTOR_CONFIRMATION">
-                  Ожидает подтверждения
-                </option>
-                <option value="ACTIVE">Активен</option>
-                <option value="FINISHED">Завершен</option>
-              </select>
+      <!-- Фильтры -->
+      <div class="filters-row">
+        <select v-model="statusFilter">
+          <option value="">Все статусы</option>
+          <option value="PLANNED">Запланирован</option>
+          <option value="WAITING_INSPECTOR_CONFIRMATION">Ожидает подтверждения</option>
+          <option value="ACTIVE">Активен</option>
+          <option value="FINISHED">Завершён</option>
+        </select>
 
-              <select v-model="cityFilter">
-                <option value="">Город</option>
-                <option
-                  v-for="city in uniqueCities"
-                  :key="city"
-                  :value="city"
-                >
-                  {{ city }}
-                </option>
-              </select>
+        <select v-model="cityFilter">
+          <option value="">Все города</option>
+          <option v-for="city in uniqueCities" :key="city" :value="city">
+            {{ city }}
+          </option>
+        </select>
+      </div>
+
+      <!-- Список объектов -->
+      <section class="objects-section">
+        <div v-if="objectsLoading" class="state">Загружаю объекты...</div>
+        <div v-else-if="objectsError" class="state state--error">{{ objectsError }}</div>
+
+        <template v-else>
+          <div
+            v-for="obj in filteredObjects"
+            :key="obj.id"
+            class="object-card"
+          >
+            <div class="object-card-main">
+              <div>
+                <div class="object-name">{{ obj.name }}</div>
+                <div class="object-city">{{ obj.city }}, {{ obj.address }}</div>
+              </div>
+              <span class="status-chip" :class="statusClass(obj.status)">
+                {{ statusLabel(obj.status) }}
+              </span>
             </div>
-          </div>
 
-          <div v-if="objectsLoading" class="state">Загружаю объекты...</div>
-          <div v-else-if="objectsError" class="state state--error">
-            {{ objectsError }}
-          </div>
-          <div v-else>
-            <div
-              v-for="obj in filteredObjects"
-              :key="obj.id"
-              class="object-card"
-            >
-              <div class="object-card-main">
-                <div>
-                  <div class="object-name">{{ obj.name }}</div>
-                  <div class="object-city">
-                    {{ obj.city }}, {{ obj.address }}
-                  </div>
-                </div>
-                <span class="status-chip" :class="statusClass(obj.status)">
-                  {{ statusLabel(obj.status) }}
-                </span>
+            <div class="object-progress">
+              <div class="progress-bar">
+                <div
+                  class="progress-bar-fill"
+                  :style="{ width: obj.progress + '%' }"
+                ></div>
               </div>
+              <span class="progress-text">{{ obj.progress }}%</span>
+            </div>
 
-              <div class="object-progress">
-                <div class="progress-bar">
-                  <div
-                    class="progress-bar-fill"
-                    :style="{ width: obj.progress + '%' }"
-                  ></div>
-                </div>
-                <span class="progress-text">{{ obj.progress }}%</span>
+            <div class="object-people">
+              <div v-if="obj.foreman">
+                <span class="label">Прораб:</span>
+                <span>{{ obj.foreman.full_name }}</span>
               </div>
+            </div>
 
-              <div class="object-people">
-                <div v-if="obj.foreman">
-                  <span class="label">Прораб:</span>
-                  <span>{{ obj.foreman.full_name }}</span>
-                </div>
-              </div>
+            <div v-if="obj.activation_reject_reason" class="reject-notice">
+              <span class="reject-notice-label">Причина отклонения:</span>
+              <span>{{ obj.activation_reject_reason }}</span>
+            </div>
 
-              <div
-                v-if="obj.activation_reject_reason"
-                class="reject-notice"
+            <div class="object-actions">
+              <button
+                v-if="obj.status === 'PLANNED'"
+                class="primary-btn"
+                @click="openActivateForm(obj.id)"
               >
-                <span class="reject-notice-label">Причина отклонения:</span>
-                <span>{{ obj.activation_reject_reason }}</span>
-              </div>
-
-              <div class="object-actions">
-                <button
-                  v-if="obj.status === 'PLANNED'"
-                  class="primary-btn"
-                  @click="openActivateForm(obj.id)"
-                >
-                  Активировать
-                </button>
-                <button v-else class="secondary-btn">
-                  Перейти
-                </button>
-              </div>
-            </div>
-
-            <div v-if="!filteredObjects.length" class="state">
-              Объектов нет
-            </div>
-          </div>
-        </div>
-
-        <!-- Колонка Прорабы -->
-        <div class="column column--foremen">
-          <div class="column-header">
-            <h2>Прорабы</h2>
-          </div>
-
-          <div v-if="foremenLoading" class="state">Загружаю прорабов...</div>
-          <div v-else-if="foremenError" class="state state--error">
-            {{ foremenError }}
-          </div>
-          <div v-else>
-            <div
-              v-for="f in foremen"
-              :key="f.id"
-              class="foreman-card"
-            >
-              <div class="foreman-name">{{ f.full_name }}</div>
-              <div class="foreman-city">{{ f.city }}</div>
-              <div class="foreman-object" v-if="f.current_object">
-                Объект: {{ f.current_object.name }}
-              </div>
-              <button class="secondary-btn">Перейти</button>
-            </div>
-
-            <div v-if="!foremen.length" class="state">
-              Прорабов нет
-            </div>
-          </div>
-        </div>
-
-        <!-- Колонка Карта -->
-        <div class="column column--map">
-          <div class="column-header">
-            <h2>Карта</h2>
-            <div class="filters">
-              <select v-model="statusFilter">
-                <option value="">Статус</option>
-                <option value="PLANNED">Запланирован</option>
-                <option value="WAITING_INSPECTOR_CONFIRMATION">
-                  Ожидает подтверждения
-                </option>
-                <option value="ACTIVE">Активен</option>
-                <option value="FINISHED">Завершен</option>
-              </select>
-
-              <select v-model="cityFilter">
-                <option value="">Город</option>
-                <option
-                  v-for="city in uniqueCities"
-                  :key="city"
-                  :value="city"
-                >
-                  {{ city }}
-                </option>
-              </select>
+                Активировать
+              </button>
+              <button
+                v-else
+                class="secondary-btn"
+                @click="goToObject(obj.id)"
+              >
+                Перейти
+              </button>
             </div>
           </div>
 
-          <div class="map-placeholder">
-            Здесь будет карта с объектами
-          </div>
-        </div>
+          <div v-if="!filteredObjects.length" class="state">Объектов нет</div>
+        </template>
       </section>
+    </main>
 
-      <!-- Панель активации -->
-      <div
-        v-if="activatingObjectId !== null"
-        class="activate-panel"
-      >
-        <div class="activate-card">
-          <h2>Активация объекта #{{ activatingObjectId }}</h2>
-          <div class="form-field">
-            <label>Чек-лист открытия (текст/JSON)</label>
-            <textarea
-              v-model="activateForm.checklist_json"
-              rows="4"
-              :disabled="activateLoading"
-            />
-          </div>
-          <div class="form-field">
-            <label>Путь к файлу акта (пока строка)</label>
-            <input
-              v-model="activateForm.act_file_path"
-              type="text"
-              placeholder="/files/acts/act-1.pdf"
-              :disabled="activateLoading"
-            />
-          </div>
-          <div v-if="activateError" class="state state--error">
-            {{ activateError }}
-          </div>
-          <div class="activate-actions">
-            <button
-              class="secondary-btn"
-              type="button"
-              @click="cancelActivate"
-            >
-              Отмена
-            </button>
-            <button
-              class="primary-btn"
-              type="button"
-              @click="submitActivate"
-              :disabled="activateLoading"
-            >
-              {{ activateLoading ? 'Активируем...' : 'Активировать' }}
-            </button>
+    <!-- Модалка активации -->
+    <div v-if="activatingObjectId !== null" class="modal-overlay" @click.self="cancelActivate">
+      <div class="modal-card">
+        <h2>Активация объекта #{{ activatingObjectId }}</h2>
+        <div class="form-field">
+          <label>Чек-лист открытия (текст/JSON)</label>
+          <textarea
+            v-model="activateForm.checklist_json"
+            rows="4"
+            :disabled="activateLoading"
+          />
+        </div>
+        <div class="form-field">
+          <label>Путь к файлу акта</label>
+          <input
+            v-model="activateForm.act_file_path"
+            type="text"
+            placeholder="/files/acts/act-1.pdf"
+            :disabled="activateLoading"
+          />
+        </div>
+        <div v-if="activateError" class="state state--error">{{ activateError }}</div>
+        <div class="modal-actions">
+          <button class="secondary-btn" @click="cancelActivate">Отмена</button>
+          <button class="primary-btn" @click="submitActivate" :disabled="activateLoading">
+            {{ activateLoading ? 'Активируем...' : 'Активировать' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Модалка карты -->
+    <div v-if="showMap" class="modal-overlay" @click.self="showMap = false">
+      <div class="modal-card modal-card--map">
+        <div class="modal-map-header">
+          <h2>Объекты на карте</h2>
+          <button class="close-btn" @click="showMap = false">✕</button>
+        </div>
+        <div class="map-placeholder">
+          <div class="map-placeholder-inner">
+            <span class="map-icon">🗺</span>
+            <span>Здесь будет карта с объектами</span>
+            <span class="map-hint">{{ objects.length }} объект(ов) для отображения</span>
           </div>
         </div>
       </div>
-    </main>
+    </div>
   </div>
 </template>
 
@@ -268,13 +191,13 @@ function goCreateObject() {
   router.push({ name: 'customer-object-create' })
 }
 
-// Приветствие
+function goToObject(id: number) {
+  router.push({ name: 'customer-object-details', params: { id } })
+}
+
 const greeting = computed(() => {
-  if (!auth.isAuthenticated) {
-    return 'Добрый день'
-  }
-  const u = auth.user
-  return u?.full_name ? `Добрый день, ${u.full_name}` : 'Добрый день'
+  const name = auth.user?.full_name
+  return name ? `Добрый день, ${name}` : 'Добрый день'
 })
 
 type DashboardObjectStatus =
@@ -290,10 +213,7 @@ type DashboardObject = {
   address: string
   status: DashboardObjectStatus
   progress: number
-  foreman?: {
-    id: number
-    full_name: string
-  } | null
+  foreman?: { id: number; full_name: string } | null
   planned_start_date?: string | null
   planned_end_date?: string | null
   lat: number
@@ -301,55 +221,31 @@ type DashboardObject = {
   activation_reject_reason?: string | null
 }
 
-type DashboardForeman = {
-  id: number
-  full_name: string
-  city: string
-  current_object?: {
-    id: number
-    name: string
-  } | null
-}
-
 type ActivateForm = {
   checklist_json: string
   act_file_path: string
 }
 
-// ==== Состояние ====
-const activatingObjectId = ref<number | null>(null)
-const activateForm = ref<ActivateForm>({
-  checklist_json: '',
-  act_file_path: '',
-})
-const activateLoading = ref(false)
-const activateError = ref<string | null>(null)
-const activateSuccess = ref<string | null>(null)
-
+// Состояние
 const objects = ref<DashboardObject[]>([])
 const objectsLoading = ref(false)
 const objectsError = ref<string | null>(null)
 
-const foremen = ref<DashboardForeman[]>([])
-const foremenLoading = ref(false)
-const foremenError = ref<string | null>(null)
-
-// фильтры и поиск
 const search = ref('')
-const statusFilter = ref<string>('')
-const cityFilter = ref<string>('')
+const statusFilter = ref('')
+const cityFilter = ref('')
 
-// Навигация
-function logout() {
-  auth.clearAuth()
-  router.push({ name: 'login' })
-}
+const showMap = ref(false)
 
-// ==== Загрузка данных ====
+const activatingObjectId = ref<number | null>(null)
+const activateForm = ref<ActivateForm>({ checklist_json: '', act_file_path: '' })
+const activateLoading = ref(false)
+const activateError = ref<string | null>(null)
+
+// Загрузка
 async function fetchObjects() {
   objectsLoading.value = true
   objectsError.value = null
-
   try {
     const params = new URLSearchParams()
     if (statusFilter.value) params.set('status', statusFilter.value)
@@ -357,20 +253,13 @@ async function fetchObjects() {
 
     const res = await fetch(
       `${API_BASE}/customer/dashboard/objects?${params.toString()}`,
-      {
-        headers: {
-          Authorization: `Bearer ${auth.token}`,
-        },
-      },
+      { headers: { Authorization: `Bearer ${auth.token}` } },
     )
-
     if (!res.ok) {
       const data = await res.json().catch(() => ({}))
       throw new Error(data.error || 'Ошибка загрузки объектов')
     }
-
-    const data = await res.json()
-    objects.value = data
+    objects.value = await res.json()
   } catch (e: any) {
     objectsError.value = e.message || 'Ошибка'
   } finally {
@@ -378,79 +267,36 @@ async function fetchObjects() {
   }
 }
 
-async function fetchForemen() {
-  foremenLoading.value = true
-  foremenError.value = null
+onMounted(fetchObjects)
+watch([statusFilter, cityFilter], fetchObjects)
 
-  try {
-    const res = await fetch(`${API_BASE}/customer/dashboard/foremen`, {
-      headers: {
-        Authorization: `Bearer ${auth.token}`,
-      },
-    })
-
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}))
-      throw new Error(data.error || 'Ошибка загрузки прорабов')
-    }
-
-    const data = await res.json()
-    foremen.value = data
-  } catch (e: any) {
-    foremenError.value = e.message || 'Ошибка'
-  } finally {
-    foremenLoading.value = false
-  }
-}
-
-// При первом входе грузим данные
-onMounted(() => {
-  fetchObjects()
-  fetchForemen()
-})
-
-// Подгружать объекты при изменении фильтров
-watch([statusFilter, cityFilter], () => {
-  fetchObjects()
-})
-
-// ==== Вычисления для отображения ====
+// Вычисления
 const filteredObjects = computed(() => {
   const q = search.value.trim().toLowerCase()
   if (!q) return objects.value
-  return objects.value.filter((o) =>
-    o.name.toLowerCase().includes(q),
-  )
+  return objects.value.filter((o) => o.name.toLowerCase().includes(q))
 })
 
 const uniqueCities = computed(() => {
   const set = new Set<string>()
-  objects.value.forEach((o) => {
-    if (o.city) set.add(o.city)
-  })
+  objects.value.forEach((o) => { if (o.city) set.add(o.city) })
   return Array.from(set)
 })
 
 function statusLabel(status: DashboardObjectStatus) {
   switch (status) {
-    case 'PLANNED':
-      return 'Запланирован'
-    case 'WAITING_INSPECTOR_CONFIRMATION':
-      return 'Ожидает подтверждения'
-    case 'ACTIVE':
-      return 'Активен'
-    case 'FINISHED':
-      return 'Завершен'
-    default:
-      return status
+    case 'PLANNED': return 'Запланирован'
+    case 'WAITING_INSPECTOR_CONFIRMATION': return 'Ожидает подтверждения'
+    case 'ACTIVE': return 'Активен'
+    case 'FINISHED': return 'Завершён'
+    default: return status
   }
 }
 
 function statusClass(status: DashboardObjectStatus) {
   return {
     'status-chip--planned': status === 'PLANNED',
-    'status-chip--waiting':
-      status === 'WAITING_INSPECTOR_CONFIRMATION',
+    'status-chip--waiting': status === 'WAITING_INSPECTOR_CONFIRMATION',
     'status-chip--active': status === 'ACTIVE',
     'status-chip--finished': status === 'FINISHED',
   }
@@ -459,11 +305,7 @@ function statusClass(status: DashboardObjectStatus) {
 function openActivateForm(objectId: number) {
   activatingObjectId.value = objectId
   activateError.value = null
-  activateSuccess.value = null
-  activateForm.value = {
-    checklist_json: '',
-    act_file_path: '',
-  }
+  activateForm.value = { checklist_json: '', act_file_path: '' }
 }
 
 function cancelActivate() {
@@ -472,22 +314,14 @@ function cancelActivate() {
 
 async function submitActivate() {
   if (!activatingObjectId.value) return
-
-  activateError.value = null
-  activateSuccess.value = null
-
   if (!activateForm.value.checklist_json.trim()) {
     activateError.value = 'Заполните чек-лист'
     return
   }
 
   activateLoading.value = true
+  activateError.value = null
   try {
-    const body = {
-      checklist_json: activateForm.value.checklist_json,
-      act_file_path: activateForm.value.act_file_path || undefined,
-    }
-
     const res = await fetch(
       `${API_BASE}/customer/objects/${activatingObjectId.value}/activate`,
       {
@@ -496,17 +330,16 @@ async function submitActivate() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${auth.token}`,
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          checklist_json: activateForm.value.checklist_json,
+          act_file_path: activateForm.value.act_file_path || undefined,
+        }),
       },
     )
-
     if (!res.ok) {
       const data = await res.json().catch(() => ({}))
-      console.log('activate error', res.status, data)
-      throw new Error(data.error || 'Ошибка активации объекта')
+      throw new Error(data.error || 'Ошибка активации')
     }
-
-    activateSuccess.value = 'Объект отправлен на подтверждение'
     await fetchObjects()
     activatingObjectId.value = null
   } catch (e: any) {
@@ -515,29 +348,18 @@ async function submitActivate() {
     activateLoading.value = false
   }
 }
+
+function logout() {
+  auth.clearAuth()
+  router.push({ name: 'login' })
+}
 </script>
 
 <style scoped>
-.customer-header-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.primary-btn {
-  padding: 8px 14px;
-  border-radius: 999px;
-  border: none;
-  background: #4f46e5;
-  color: #ffffff;
-  font-size: 14px;
-  cursor: pointer;
-}
-
 .customer-layout {
   display: grid;
-  grid-template-columns: 206px auto 1fr;
+  grid-template-columns: 206px 1fr;
+  grid-template-rows: 1fr;
   min-height: 100vh;
   background: #f9fafb;
 }
@@ -545,7 +367,7 @@ async function submitActivate() {
 /* Сайдбар */
 .sidebar {
   grid-column: 1;
-  width: 206px;
+  grid-row: 1;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -555,9 +377,10 @@ async function submitActivate() {
 }
 
 .sidebar-logo {
-  font-size: 20px;
+  font-size: 15px;
   font-weight: 700;
   margin-bottom: 24px;
+  color: #111827;
 }
 
 .sidebar-nav {
@@ -611,22 +434,16 @@ async function submitActivate() {
   color: #6b7280;
 }
 
-.role-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-}
+.role-dot { width: 10px; height: 10px; border-radius: 999px; }
+.role-dot--customer { background: #34c924; }
 
-.role-dot--customer {
-  background: #34c924;
-}
-
-/* Центральная часть */
+/* Основная область */
 .customer-main {
   grid-column: 2;
-  padding: 20px 24px;
+  grid-row: 1;
+  padding: 24px 32px;
   box-sizing: border-box;
-  margin-left: 35px;
+  min-width: 0;
 }
 
 .customer-header {
@@ -634,7 +451,14 @@ async function submitActivate() {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.customer-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
@@ -652,140 +476,141 @@ async function submitActivate() {
   margin-left: auto;
 }
 
-.search-wrapper {
-  max-width: 280px;
-  width: 100%;
-}
-
 .search-wrapper input {
-  width: 100%;
-  padding: 8px 11px;
+  width: 240px;
+  padding: 8px 12px;
   border-radius: 999px;
   border: 1px solid #d1d5db;
   background: #f9fafb;
   font-size: 14px;
+  outline: none;
 }
 
-/* Дашборд */
-.dashboard {
-  display: grid;
-  grid-template-columns: minmax(320px, 1.2fr) minmax(260px, 0.9fr) minmax(320px, 1.1fr);
-  gap: 16px;
-  align-items: start;
+/* Кнопки */
+.primary-btn {
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: none;
+  background: #4f46e5;
+  color: #ffffff;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s;
 }
 
-/* Колонки */
-.column {
+.primary-btn:hover:not(:disabled) { background: #4338ca; }
+.primary-btn:disabled { opacity: 0.5; cursor: default; }
+
+.secondary-btn {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: none;
+  background: #e5e7eb;
+  color: #374151;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.secondary-btn:hover { background: #d1d5db; }
+
+.map-btn {
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid #d1d5db;
   background: #ffffff;
-  border-radius: 16px;
-  padding: 16px;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
-  border: 1px solid #e5e7eb;
-  display: flex;
-  flex-direction: column;
+  color: #374151;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
 }
 
-.column-header {
+.map-btn:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+/* Фильтры */
+.filters-row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 8px;
+  gap: 8px;
+  margin-bottom: 16px;
   flex-wrap: wrap;
 }
 
-.column-header h2 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.filters {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.filters select {
-  padding: 6px 8px;
+.filters-row select {
+  padding: 6px 10px;
   border-radius: 999px;
   border: 1px solid #d1d5db;
   background: #f9fafb;
-  font-size: 12px;
-  min-width: 120px;
-}
-
-/* Состояние */
-.state {
   font-size: 13px;
-  color: #6b7280;
+  min-width: 160px;
+  cursor: pointer;
 }
 
-.state--error {
-  color: #b91c1c;
+/* Список объектов */
+.objects-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-/* Карточка объекта */
 .object-card {
-  border-radius: 12px;
+  background: #ffffff;
   border: 1px solid #e5e7eb;
-  padding: 10px 12px;
-  margin-bottom: 8px;
-  background: #f9fafb;
+  border-radius: 14px;
+  padding: 14px 16px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  transition: box-shadow 0.15s;
+}
+
+.object-card:hover {
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
 }
 
 .object-card-main {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 12px;
 }
 
 .object-name {
   font-weight: 600;
-  font-size: 14px;
+  font-size: 15px;
+  color: #111827;
 }
 
 .object-city {
   font-size: 12px;
   color: #6b7280;
+  margin-top: 2px;
 }
 
 .status-chip {
-  padding: 2px 10px;
+  padding: 3px 10px;
   border-radius: 999px;
   font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.status-chip--planned {
-  background: #e5e7eb;
-  color: #374151;
-}
-
-.status-chip--waiting {
-  background: #fef3c7;
-  color: #92400e;
-}
-
-.status-chip--active {
-  background: #dcfce7;
-  color: #166534;
-}
-
-.status-chip--finished {
-  background: #e0f2fe;
-  color: #1d4ed8;
-}
+.status-chip--planned   { background: #e5e7eb; color: #374151; }
+.status-chip--waiting   { background: #fef3c7; color: #92400e; }
+.status-chip--active    { background: #dcfce7; color: #166534; }
+.status-chip--finished  { background: #e0f2fe; color: #1d4ed8; }
 
 .object-progress {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 6px;
+  margin-top: 10px;
 }
 
 .progress-bar {
   flex: 1;
-  height: 6px;
+  height: 5px;
   background: #e5e7eb;
   border-radius: 999px;
   overflow: hidden;
@@ -794,150 +619,23 @@ async function submitActivate() {
 .progress-bar-fill {
   height: 100%;
   background: #4f46e5;
+  border-radius: 999px;
 }
 
 .progress-text {
   font-size: 12px;
-  color: #4b5563;
+  color: #6b7280;
+  min-width: 32px;
+  text-align: right;
 }
 
 .object-people {
-  margin-top: 6px;
+  margin-top: 8px;
   font-size: 12px;
   color: #374151;
 }
 
-.object-people .label {
-  color: #6b7280;
-  margin-right: 4px;
-}
-
-.object-actions {
-  margin-top: 8px;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.secondary-btn {
-  padding: 6px 12px;
-  border-radius: 999px;
-  border: none;
-  background: #e5e7eb;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-/* Карточка прораба */
-.foreman-card {
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
-  padding: 10px 12px;
-  margin-bottom: 8px;
-  background: #f9fafb;
-}
-
-.foreman-name {
-  font-weight: 600;
-  font-size: 14px;
-}
-
-.foreman-city,
-.foreman-object {
-  font-size: 12px;
-  color: #6b7280;
-}
-
-/* Карта */
-.map-placeholder {
-  flex: 1;
-  border-radius: 12px;
-  border: 1px dashed #d1d5db;
-  background: #f9fafb;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #9ca3af;
-  font-size: 13px;
-  margin-top: 8px;
-}
-
-.activate-panel {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.65);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 16px;
-  z-index: 40;
-}
-
-.activate-card {
-  width: 100%;
-  max-width: 720px;
-  background: #ffffff;
-  border-radius: 16px;
-  padding: 20px 22px 18px;
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.25);
-  box-sizing: border-box;
-}
-
-.activate-card h2 {
-  margin: 0 0 12px;
-  font-size: 18px;
-  font-weight: 600;
-  color: #111827;
-}
-
-.activate-card .form-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.activate-card label {
-  font-size: 13px;
-  color: #6b7280;
-}
-
-.activate-card textarea,
-.activate-card input {
-  border-radius: 10px;
-  border: 1px solid #d1d5db;
-  padding: 7px 10px;
-  font-size: 14px;
-  outline: none;
-  transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease,
-    background-color 0.15s ease;
-  background-color: #f9fafb;
-}
-
-.activate-card textarea:focus,
-.activate-card input:focus {
-  border-color: #a5b4fc;
-  box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.35);
-  background-color: #ffffff;
-}
-
-.activate-card textarea {
-  resize: vertical;
-  min-height: 80px;
-}
-
-.activate-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.state--success {
-  margin-top: 6px;
-  font-size: 13px;
-  color: #16a34a;
-}
+.object-people .label { color: #9ca3af; margin-right: 4px; }
 
 .reject-notice {
   margin-top: 8px;
@@ -957,99 +655,152 @@ async function submitActivate() {
   color: #78350f;
 }
 
-/* Ноутбук / узкий desktop */
-@media (max-width: 1400px) {
-  .dashboard {
-    grid-template-columns: minmax(300px, 1fr) minmax(260px, 0.9fr);
-  }
-
-  .column--map {
-    grid-column: 1 / -1;
-  }
+.object-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
 }
 
-/* Планшет */
-@media (max-width: 1100px) {
-  .customer-layout {
-    grid-template-columns: 260px 1fr;
-  }
+/* Состояния */
+.state { font-size: 13px; color: #6b7280; padding: 8px 0; }
+.state--error { color: #b91c1c; }
 
-  .customer-main {
-    grid-column: 2;
-    margin-left: 0;
-    padding: 20px 16px;
-  }
-
-  .dashboard {
-    grid-template-columns: 1fr;
-  }
-
-  .column--objects,
-  .column--foremen,
-  .column--map {
-    grid-column: auto;
-  }
-
-  .customer-header-right {
-    width: 100%;
-    margin-left: 0;
-  }
-
-  .search-wrapper {
-    max-width: 100%;
-  }
+/* Модалки */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+  z-index: 50;
 }
 
-/* Мобильный */
+.modal-card {
+  width: 100%;
+  max-width: 560px;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 22px 24px 20px;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+  box-sizing: border-box;
+}
+
+.modal-card h2 {
+  margin: 0 0 16px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.modal-card--map {
+  max-width: 800px;
+  padding: 20px 22px;
+}
+
+.modal-map-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.modal-map-header h2 { margin: 0; }
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.close-btn:hover { background: #f3f4f6; color: #374151; }
+
+.map-placeholder {
+  height: 420px;
+  border-radius: 12px;
+  border: 2px dashed #d1d5db;
+  background: #f9fafb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.map-placeholder-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: #9ca3af;
+  font-size: 14px;
+}
+
+.map-icon { font-size: 40px; }
+
+.map-hint {
+  font-size: 12px;
+  color: #d1d5db;
+}
+
+/* Форма активации */
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.form-field label {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.form-field textarea,
+.form-field input {
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  padding: 7px 10px;
+  font-size: 14px;
+  outline: none;
+  background: #f9fafb;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.form-field textarea:focus,
+.form-field input:focus {
+  border-color: #a5b4fc;
+  box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.35);
+  background: #ffffff;
+}
+
+.form-field textarea { resize: vertical; min-height: 80px; }
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* Адаптив */
+@media (max-width: 900px) {
+  .customer-main { padding: 16px 20px; max-width: 100%; }
+}
+
 @media (max-width: 768px) {
-  .customer-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .sidebar {
-    width: 100%;
-    grid-column: 1;
-    border-right: none;
-    border-bottom: 1px solid #e5e7eb;
-    padding: 16px;
-  }
-
-  .customer-main {
-    grid-column: 1;
-    padding: 16px;
-  }
-
-  .customer-header-left {
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .primary-btn {
-    white-space: nowrap;
-  }
-
-  .filters {
-    width: 100%;
-  }
-
-  .filters select {
-    flex: 1 1 140px;
-    min-width: 0;
-  }
-
-  .object-card-main {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
-
-  .object-actions {
-    justify-content: flex-start;
-  }
-
-  .activate-card {
-    max-width: 100%;
-    padding: 16px;
-  }
+  .customer-layout { grid-template-columns: 1fr; }
+  .sidebar { width: 100%; border-right: none; border-bottom: 1px solid #e5e7eb; padding: 16px; }
+  .customer-main { padding: 16px; }
+  .customer-header-left { width: 100%; }
+  .customer-header-right { width: 100%; margin-left: 0; }
+  .search-wrapper input { width: 100%; }
+  .object-card-main { flex-direction: column; gap: 8px; }
+  .modal-card--map { padding: 16px; }
+  .map-placeholder { height: 280px; }
 }
 </style>
