@@ -20,7 +20,7 @@ type ObjectCoreDTO struct {
 	Status           models.ObjectStatus `json:"status"`
 	Lat              float64             `json:"lat"`
 	Lng              float64             `json:"lng"`
-	PlannedStartDate *time.Time          `json:"planned_start_date,omitempy"`
+	PlannedStartDate *time.Time          `json:"planned_start_date,omitempty"`
 	PlannedEndDate   *time.Time          `json:"planned_end_date,omitempty"`
 	Customer         *ObjectPersonDTO    `json:"customer,omitempty"`
 	Foreman          *ObjectPersonDTO    `json:"foreman,omitempty"`
