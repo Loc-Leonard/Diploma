@@ -1,6 +1,7 @@
 package customer
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 
 	"github.com/Loc-Leonard/Diploma/internal/auth"
 	"github.com/Loc-Leonard/Diploma/internal/models"
+	"github.com/Loc-Leonard/Diploma/internal/objectcore"
 )
 
 type Handler struct {
@@ -29,6 +31,8 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 
 		gr.POST("/objects", h.CreateObject)
 		gr.POST("/objects/:id/activate", h.ActivateObject)
+
+		gr.GET("/objects/:id", h.GetObject)
 	}
 }
 
@@ -301,8 +305,6 @@ func (h *Handler) DashboardForemen(c *gin.Context) {
 }
 
 type ActivateObjectRequest struct {
-	// ForemanUserID   uint    `json:"foreman_user_id" binding:"required"`
-	// InspectorUserID uint    `json:"inspector_user_id" binding:"required"`
 	ChecklistJSON string  `json:"checklist_json" binding:"required"`
 	ActFilePath   *string `json:"act_file_path"`
 }
@@ -336,26 +338,6 @@ func (h *Handler) ActivateObject(c *gin.Context) {
 		return
 	}
 
-	// // проверяем, что прораб существует и имеет роль FOREMAN
-	// var foreman models.User
-	// if err := h.db.
-	// 	Where("id = ? AND role = ?", req.ForemanUserID, models.RoleForeman).
-	// 	First(&foreman).Error; err != nil {
-	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "invalid foreman"})
-	// 	return
-	// }
-
-	// // проверяем инспектора
-	// var inspector models.User
-	// if err := h.db.
-	// 	Where("id = ? AND role = ?", req.InspectorUserID, models.RoleInspector).
-	// 	First(&inspector).Error; err != nil {
-	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "invalid inspector"})
-	// 	return
-	// }
-
-	// obj.ForemanUserID = req.ForemanUserID
-	// obj.InspectorUserID = req.InspectorUserID
 	obj.InitChecklistJSON = req.ChecklistJSON
 
 	if req.ActFilePath != nil {
@@ -377,4 +359,22 @@ func (h *Handler) ActivateObject(c *gin.Context) {
 // for tests
 func HandlerForTest(db *gorm.DB) *Handler {
 	return &Handler{db: db}
+}
+
+// GET /customer/objects/:id
+func (h *Handler) GetObject(c *gin.Context) {
+	userID := auth.UserIDFromContext(c)
+	id := c.Param("id")
+
+	obj, err := objectcore.LoadObjectForUser(h.db, id, userID, string(models.RoleCustomer))
+	if errors.Is(err, objectcore.ErrNotFound) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "object not found"})
+		return
+	}
+	if errors.Is(err, objectcore.ErrForbidden) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "access denied"})
+		return
+	}
+	core := objectcore.BuildObjectCoreDTO(h.db, obj)
+	c.JSON(http.StatusOK, core)
 }
