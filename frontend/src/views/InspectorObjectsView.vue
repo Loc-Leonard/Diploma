@@ -436,11 +436,7 @@ onMounted(fetchObjects)
   border-color: #9ca3af;
 }
 
-.modal-card--map {
-  width: 100%;
-  max-width: 800px;
-  padding: 20px 22px;
-}
+
 
 .modal-map-header {
   display: flex;
@@ -472,8 +468,24 @@ onMounted(fetchObjects)
   color: #374151;
 }
 
+.modal-card{
+  width: 100%;
+  max-width: 560px;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 22px 24px 20px;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+  box-sizing: border-box;
+}
+
+.modal-card--map {
+  width: min(100%, 960px);
+  max-width: 960px;
+  padding: 20px 22px;
+}
+
 .map-placeholder {
-  height: 420px;
+  height: 360px;
   border-radius: 12px;
   border: 2px dashed #d1d5db;
   background: #f9fafb;
@@ -500,15 +512,6 @@ onMounted(fetchObjects)
   color: #d1d5db;
 }
 
-.modal-card {
-  width: 100%;
-  max-width: 560px;
-  background: #ffffff;
-  border-radius: 16px;
-  padding: 22px 24px 20px;
-  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
-  box-sizing: border-box;
-}
 
 .customer-header {
   display: flex;
@@ -609,11 +612,12 @@ onMounted(fetchObjects)
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(15, 23, 42, 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 200;
+  padding: 16px;
 }
 
 .modal {
@@ -731,5 +735,16 @@ onMounted(fetchObjects)
 }
 .reject-btn:hover { background: #fecaca; }
 .reject-btn:disabled { opacity: 0.6; cursor: default; }
+
+@media (max-width: 768px) {
+  .modal-card--map {
+    width: 100%;
+    max-width: calc(100vw - 32px);
+    padding: 16px;
+  }
+  .map-placeholder {
+    height: 280px;
+  }
+}
 
 </style>
