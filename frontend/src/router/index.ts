@@ -10,6 +10,7 @@ import ForemanObjectView from '../views/ForemanObjectView.vue'
 import ForemanObjectsView from '../views/ForemanObjectsView.vue'
 import InspectorDashboardView from '../views/InspectorDashboardView.vue'
 import CustomerObjectCreate from '../views/CustomerObjectCreate.vue'
+import CustomerObjectView from '@/views/CustomerObjectView.vue'
 
 
 const routes: RouteRecordRaw[] = [
@@ -41,6 +42,12 @@ const routes: RouteRecordRaw[] = [
     name: 'customer-objects',
     component: CustomerObjectsView,
     meta: { requiresAuth: true, customerOnly: true },
+  },
+  {
+    path: '/customer/object/:id',
+    name: 'customer-object-details',
+    component: CustomerObjectView,
+    meta: { requiresAuth: true, customerOnly: true }
   },
   {
     path: '/foreman/objects',
