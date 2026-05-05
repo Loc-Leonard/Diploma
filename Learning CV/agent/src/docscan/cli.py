@@ -31,6 +31,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Run heuristic extraction baseline using document filenames.",
     )
     extract_parser.add_argument("--limit", type=int, default=None, help="Optional max document count.")
+    file_parser = subparsers.add_parser(
+        "process-file",
+        help="Process a single document and print extracted JSON payload to stdout.",
+    )
+    file_parser.add_argument("--input", required=True, help="Path to a source PDF/JPG/JPEG/PNG file.")
+    file_parser.add_argument(
+        "--predicted-type",
+        default="ttn",
+        help="Optional document type hint. Defaults to ttn.",
+    )
     subparsers.add_parser(
         "process-dataset",
         help="Mirror the full dataset directory tree into output/*_out and write one processed JSON per source file.",
@@ -81,6 +91,15 @@ def main() -> None:
             "processed_files": payload["processed_files"],
         }
         print(json.dumps(summary, ensure_ascii=False, indent=2))
+        return
+
+    if args.command == "process-file":
+        source_path = Path(args.input).resolve()
+        payload = {
+            "source_path": str(source_path),
+            **build_document_payload(source_path, args.predicted_type, config),
+        }
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
         return
 
     parser.error(f"Unsupported command: {args.command}")
