@@ -13,6 +13,7 @@ import (
 	"github.com/Loc-Leonard/Diploma/internal/auth"
 	"github.com/Loc-Leonard/Diploma/internal/config"
 	"github.com/Loc-Leonard/Diploma/internal/customer"
+	"github.com/Loc-Leonard/Diploma/internal/cv"
 	"github.com/Loc-Leonard/Diploma/internal/db"
 	"github.com/Loc-Leonard/Diploma/internal/foreman"
 	"github.com/Loc-Leonard/Diploma/internal/inspector"
@@ -22,6 +23,9 @@ import (
 func main() {
 	cfg := config.Load()
 	database := db.MustConnect(cfg.DBDsn)
+	cvProcessor := cv.HTTPProcessor{
+		BaseURL: cfg.CVServiceURL,
+	}
 
 	// миграция через GORM (на всякий случай, если без docker-entrypoint-initdb.d)
 	if err := database.AutoMigrate(
@@ -30,6 +34,7 @@ func main() {
 		&models.WorkItem{},
 		&models.WorkReport{},
 		&models.MaterialDelivery{},
+		&models.MaterialDocument{},
 		&models.Inspection{},
 	); err != nil {
 		log.Printf("auto migrate failed: %v", err)
@@ -50,7 +55,7 @@ func main() {
 	auth.RegisterRoutes(r, database)
 	admin.RegisterRoutes(r, database)
 	customer.RegisterRoutes(r, database)
-	foreman.RegisterRoutes(r, database)
+	foreman.RegisterRoutes(r, database, cvProcessor, cfg.StorageRoot)
 	inspector.RegisterRoutes(r, database)
 
 	if err := r.Run(":8080"); err != nil {
