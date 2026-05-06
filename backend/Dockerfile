@@ -1,20 +1,23 @@
-FROM golang:1.25.0-alpine as builder
+FROM golang:1.25.0-alpine AS builder
 
 WORKDIR /app
 
+# модуль в корне проекта
+COPY go.mod go.sum ./
+RUN go mod download
+
+# копируем весь проект (или только нужное)
 COPY . .
 
-RUN go mod download \
-    && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o main ./cmd/server \
-    && mkdir -p /app/storage
+# собираем из каталога backend/cmd/server
+WORKDIR /app/backend
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /app/main ./cmd/server
+RUN mkdir -p /app/storage
 
 FROM scratch
 
 COPY --from=builder /app/main /app/main
 COPY --from=builder /app/storage /app/storage
 
-# USER 1000:1000
-
 EXPOSE 8080
-
 CMD ["/app/main"]
