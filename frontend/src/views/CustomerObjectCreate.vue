@@ -1,27 +1,6 @@
 <template>
   <div class="customer-layout">
-    <aside class="sidebar">
-      <div class="sidebar-top">
-        <div class="sidebar-logo">ЛОГОТИП</div>
-
-        <nav class="sidebar-nav">
-          <button class="nav-item nav-item--active" @click="goToObjects">
-            Объекты
-          </button>
-          <button class="nav-item" disabled>График</button>
-          <button class="nav-item" disabled>Замечания</button>
-          <button class="nav-item" disabled>Проверки</button>
-        </nav>
-      </div>
-
-      <div class="sidebar-bottom">
-        <div class="role-badge">
-          <span class="role-dot role-dot--customer"></span>
-          <span>Заказчик</span>
-        </div>
-        <button class="logout-button" @click="logout">Выйти</button>
-      </div>
-    </aside>
+    <CustomerLayout />
 
     <main class="customer-main">
       <header class="customer-header">
@@ -124,6 +103,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import CustomerLayout from './CustomerLayout.vue'
 
 const API_BASE = import.meta.env.VITE_API_URL as string
 

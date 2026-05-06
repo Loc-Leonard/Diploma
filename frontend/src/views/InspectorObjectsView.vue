@@ -1,113 +1,102 @@
 <template>
-  <div class="customer-layout">
-    <aside class="sidebar">
-      <div class="sidebar-top">
-        <div class="sidebar-logo">{{ greeting }}</div>
-        <nav class="sidebar-nav">
-          <button class="nav-item" :class="{ 'nav-item--active': isChecksActive }" @click="goToChecks">
-            Проверки
-          </button>
-          <button class="nav-item" disabled>График</button>
-          <button class="nav-item" disabled>Замечания</button>
-          <button class="nav-item" :class="{ 'nav-item--active': isObjectsActive }" @click="goToObjects">
-            <span>Объекты</span>
-            <span v-if="pendingCount > 0" class="nav-badge">{{ pendingCount }}</span>
-          </button>
-          <button class="nav-item" disabled>Справочники</button>
-        </nav>
-      </div>
-      <div class="sidebar-bottom">
-        <div class="role-badge">
-          <span class="role-dot role-dot--inspector"></span>
-          <span>Инспектор</span>
-        </div>
-        <button class="logout-button" @click="logout">Выйти</button>
-      </div>
-    </aside>
-
-    <main class="customer-main">
-      <header class="customer-header">
+  <div>
+    <header class="customer-header">
+      <div class="customer-header-left">
         <h1 class="customer-title">Объекты</h1>
-        <div class="customer-header-right">
-          <div class="search-wrapper">
-            <input v-model="search" type="text" placeholder="Поиск по названию, городу, адресу" />
+        <button class="map-btn" @click="showMap = true">
+          🗺 Показать на карте
+        </button>
+      </div>
+      <div class="customer-header-right">
+        <div class="search-wrapper">
+          <input v-model="search" type="text" placeholder="Поиск по названию, городу, адресу" />
+        </div>
+        <select v-model="statusFilter" class="filter-select">
+          <option value="">Все статусы</option>
+          <option value="WAITING_INSPECTOR_CONFIRMATION">Ожидают подтверждения</option>
+          <option value="ACTIVE">Активные</option>
+          <option value="PLANNED">Запланированные</option>
+          <option value="FINISHED">Завершённые</option>
+        </select>
+      </div>
+    </header>
+
+    <!-- Секция: требуют подтверждения -->
+    <section v-if="pendingObjects.length" class="pending-section">
+      <div class="section-header">
+        <h2>Требуют подтверждения</h2>
+        <span class="pending-pill">{{ pendingObjects.length }}</span>
+      </div>
+      <div class="object-grid">
+        <article
+          v-for="obj in pendingObjects"
+          :key="obj.id"
+          class="object-card object-card--pending"
+        >
+          <div class="object-top">
+            <div>
+              <div class="object-name">{{ obj.name }}</div>
+              <div class="object-address">{{ obj.city }}, {{ obj.address }}</div>
+            </div>
+            <span class="status-chip status-chip--pending">Ожидает подтверждения</span>
           </div>
-          <select v-model="statusFilter" class="filter-select">
-            <option value="">Все статусы</option>
-            <option value="WAITING_INSPECTOR_CONFIRMATION">Ожидают подтверждения</option>
-            <option value="ACTIVE">Активные</option>
-            <option value="PLANNED">Запланированные</option>
-            <option value="FINISHED">Завершённые</option>
-          </select>
-        </div>
-      </header>
+          <div class="object-meta">
+            <div><span class="label">Прораб:</span> {{ obj.foreman_name || '—' }}</div>
+            <div><span class="label">Плановая дата:</span> {{ formatDate(obj.planned_start_date) }}</div>
+          </div>
+          <div class="object-actions">
+            <button class="primary-btn" @click="openApprovalModal(obj)">Рассмотреть</button>
+          </div>
+        </article>
+      </div>
+    </section>
 
-      <!-- Секция: требуют подтверждения -->
-      <section v-if="pendingObjects.length" class="pending-section">
-        <div class="section-header">
-          <h2>Требуют подтверждения</h2>
-          <span class="pending-pill">{{ pendingObjects.length }}</span>
-        </div>
-        <div class="object-grid">
-          <article
-            v-for="obj in pendingObjects"
-            :key="obj.id"
-            class="object-card object-card--pending"
-          >
-            <div class="object-top">
-              <div>
-                <div class="object-name">{{ obj.name }}</div>
-                <div class="object-address">{{ obj.city }}, {{ obj.address }}</div>
-              </div>
-              <span class="status-chip status-chip--pending">Ожидает подтверждения</span>
+    <!-- Секция: все объекты -->
+    <section class="list-section">
+      <div class="section-header">
+        <h2>Все объекты</h2>
+        <span class="count-text">{{ filteredObjects.length }}</span>
+      </div>
+      <div v-if="loading" class="state">Загружаю объекты...</div>
+      <div v-else-if="error" class="state state--error">{{ error }}</div>
+      <div v-else-if="!filteredObjects.length" class="state">Объектов пока нет</div>
+      <div v-else class="object-grid">
+        <article v-for="obj in filteredObjects" :key="obj.id" class="object-card">
+          <div class="object-top">
+            <div>
+              <div class="object-name">{{ obj.name }}</div>
+              <div class="object-address">{{ obj.city }}, {{ obj.address }}</div>
             </div>
-            <div class="object-meta">
-              <div><span class="label">Прораб:</span> {{ obj.foreman_name || '—' }}</div>
-              <div><span class="label">Плановая дата:</span> {{ formatDate(obj.planned_start_date) }}</div>
-            </div>
-            <div class="object-actions">
-              <button class="primary-btn" @click="openModal(obj)">Рассмотреть</button>
-            </div>
-          </article>
-        </div>
-      </section>
+            <span class="status-chip" :class="statusClass(obj.status)">
+              {{ statusLabel(obj.status) }}
+            </span>
+          </div>
+          <div class="object-meta">
+            <div><span class="label">Прораб:</span> {{ obj.foreman_name || '—' }}</div>
+            <div><span class="label">Плановая дата:</span> {{ formatDate(obj.planned_start_date) }}</div>
+          </div>
+          <div class="object-actions">
+            <!-- ещё не подтверждён → модалка -->
+            <button
+              v-if="obj.has_pending_action || obj.status === 'WAITING_INSPECTOR_CONFIRMATION'"
+              class="primary-btn"
+              @click="openApprovalModal(obj)"
+            >
+              Рассмотреть
+            </button>
 
-      <!-- Секция: все объекты -->
-      <section class="list-section">
-        <div class="section-header">
-          <h2>Все объекты</h2>
-          <span class="count-text">{{ filteredObjects.length }}</span>
-        </div>
-        <div v-if="loading" class="state">Загружаю объекты...</div>
-        <div v-else-if="error" class="state state--error">{{ error }}</div>
-        <div v-else-if="!filteredObjects.length" class="state">Объектов пока нет</div>
-        <div v-else class="object-grid">
-          <article v-for="obj in filteredObjects" :key="obj.id" class="object-card">
-            <div class="object-top">
-              <div>
-                <div class="object-name">{{ obj.name }}</div>
-                <div class="object-address">{{ obj.city }}, {{ obj.address }}</div>
-              </div>
-              <span class="status-chip" :class="statusClass(obj.status)">
-                {{ statusLabel(obj.status) }}
-              </span>
-            </div>
-            <div class="object-meta">
-              <div><span class="label">Прораб:</span> {{ obj.foreman_name || '—' }}</div>
-              <div><span class="label">Плановая дата:</span> {{ formatDate(obj.planned_start_date) }}</div>
-            </div>
-            <div class="object-actions">
-              <button v-if="obj.has_pending_action" class="primary-btn" @click="openModal(obj)">
-                Рассмотреть
-              </button>
-              <button v-else class="secondary-btn" @click="openModal(obj)">
-                Открыть
-              </button>
-            </div>
-          </article>
-        </div>
-      </section>
-    </main>
+            <!-- активный / завершённый → отдельная страница -->
+            <button
+              v-else-if="obj.status === 'ACTIVE' || obj.status === 'FINISHED'"
+              class="secondary-btn"
+              @click="openDetailsPage(obj)"
+            >
+              Открыть
+            </button>
+          </div>
+        </article>
+      </div>
+    </section>
 
     <!-- Модалка -->
     <Teleport to="body">
@@ -163,7 +152,6 @@
               </div>
             </div>
 
-            <!-- Форма отклонения -->
             <div v-if="modal.mode === 'reject'" class="reject-form">
               <label class="reject-label">
                 Причина отклонения <span class="required">*</span>
@@ -179,12 +167,10 @@
           </div>
 
           <div class="modal-footer">
-            <!-- Объект не требует действия — просто закрыть -->
             <template v-if="!modal.obj?.has_pending_action">
               <button class="secondary-btn" @click="closeModal">Закрыть</button>
             </template>
 
-            <!-- Режим выбора действия -->
             <template v-else-if="modal.mode === 'idle'">
               <button class="secondary-btn" @click="closeModal">Закрыть</button>
               <button class="reject-btn" @click="modal.mode = 'reject'" :disabled="modal.submitting">
@@ -195,7 +181,6 @@
               </button>
             </template>
 
-            <!-- Режим ввода причины отклонения -->
             <template v-else-if="modal.mode === 'reject'">
               <button class="secondary-btn" @click="modal.mode = 'idle'" :disabled="modal.submitting">
                 Назад
@@ -209,18 +194,38 @@
         </div>
       </div>
     </Teleport>
+
+    <!-- MAP -->
+    <div v-if="showMap" class="modal-overlay" @click.self="showMap = false">
+      <div class="modal-card modal-card--map">
+        <div class="modal-map-header">
+          <h2>Объекты на карте</h2>
+          <button class="close-btn" @click="showMap = false">✕</button>
+        </div>
+        <div class="map-placeholder">
+          <div class="map-placeholder-inner">
+            <span class="map-icon">🗺</span>
+            <span>Здесь будет карта с объектами</span>
+            <span class="map-hint">
+              {{ filteredObjects.length }} Объектов для отображения
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, reactive } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { useInspectorNotificationsStore } from '@/stores/inspectorNotifications'
 
 const API_BASE = import.meta.env.VITE_API_URL as string
 const auth = useAuthStore()
+const showMap = ref(false)
 const router = useRouter()
-const route = useRoute()
 
 type InspectorObjectStatus = 'PLANNED' | 'WAITING_INSPECTOR_CONFIRMATION' | 'ACTIVE' | 'FINISHED'
 
@@ -269,20 +274,13 @@ const modal = reactive({
   submitting: false,
 })
 
-const greeting = computed(() => {
-  if (!auth.isAuthenticated) return 'Добрый день'
-  return auth.user?.full_name ? `Добрый день, ${auth.user.full_name}` : 'Добрый день'
-})
-
-const isChecksActive = computed(() => route.name === 'inspector-checks')
-const isObjectsActive = computed(() => route.name === 'inspector-objects')
-const pendingCount = computed(() => objects.value.filter(o => o.status === 'WAITING_INSPECTOR_CONFIRMATION').length)
-const pendingObjects = computed(() => objects.value.filter(o => o.status === 'WAITING_INSPECTOR_CONFIRMATION'))
+const pendingObjects = notifications.pendingObjects
 
 const filteredObjects = computed(() => {
   const q = search.value.trim().toLowerCase()
   return objects.value.filter(o => {
-    const matchesSearch = !q ||
+    const matchesSearch =
+      !q ||
       o.name.toLowerCase().includes(q) ||
       o.city.toLowerCase().includes(q) ||
       o.address.toLowerCase().includes(q) ||
@@ -314,20 +312,44 @@ async function fetchObjectDetails(id: number) {
   modal.loading = true
   modal.fetchError = null
   modal.details = null
+
   try {
     const res = await fetch(`${API_BASE}/inspector/objects/${id}`, {
       headers: { Authorization: `Bearer ${auth.token}` },
     })
-    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Ошибка загрузки объекта')
-    modal.details = await res.json()
+
+    if (!res.ok) {
+      throw new Error((await res.json().catch(() => ({}))).error ?? 'Ошибка загрузки')
+    }
+
+    const data = await res.json()
+console.log('INSPECTOR DETAILS', data)
+
+const core = data.object  // ← вот это добавилось
+
+modal.details = {
+  id: core.id,
+  name: core.name ?? '',
+  city: core.city ?? '',
+  address: core.address ?? '',
+  description: core.description ?? '',
+  status: core.status ?? 'PLANNED',
+  foreman_name: core.foreman?.full_name ?? '',
+  planned_start_date: core.planned_start_date ?? null,
+  planned_end_date: core.planned_end_date ?? null,
+  actual_start_date: core.actual_start_date ?? null,
+  init_checklist_json: core.init_checklist_json ?? '',
+  init_act_file_path: core.init_act_file_path ?? '',
+  activation_reject_reason: core.activation_reject_reason ?? '',
+}
   } catch (e: any) {
-    modal.fetchError = e.message || 'Ошибка'
+    modal.fetchError = e.message
   } finally {
     modal.loading = false
   }
 }
 
-function openModal(obj: InspectorObjectItem) {
+function openApprovalModal(obj: InspectorObjectItem) {
   modal.open = true
   modal.obj = obj
   modal.details = null
@@ -336,6 +358,10 @@ function openModal(obj: InspectorObjectItem) {
   modal.submitError = null
   modal.submitting = false
   fetchObjectDetails(obj.id)
+}
+
+function openDetailsPage(obj: InspectorObjectItem) {
+  router.push({ name: 'inspector-object-details', params: { id: obj.id } })
 }
 
 function closeModal() {
@@ -370,10 +396,15 @@ async function submitDecision(decision: 'APPROVE' | 'REJECT') {
       body: JSON.stringify(body),
     })
 
-    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Ошибка отправки')
+    if (!res.ok) {
+      throw new Error((await res.json().catch(() => ({}))).error || 'Ошибка отправки')
+    }
 
     closeModal()
-    await fetchObjects()
+    await Promise.all([
+      fetchObjects(),
+      notifications.fetchPending(),
+    ])
   } catch (e: any) {
     modal.submitError = e.message || 'Ошибка'
   } finally {
@@ -384,17 +415,6 @@ async function submitDecision(decision: 'APPROVE' | 'REJECT') {
 function formatChecklist(json: string) {
   try { return JSON.stringify(JSON.parse(json), null, 2) }
   catch { return json }
-}
-
-function goToChecks() {
-  if (route.name !== 'inspector-checks') router.push({ name: 'inspector-checks' })
-}
-function goToObjects() {
-  if (route.name !== 'inspector-objects') router.push({ name: 'inspector-objects' })
-}
-function logout() {
-  auth.clearAuth()
-  router.push({ name: 'login' })
 }
 
 function statusLabel(status: InspectorObjectStatus) {
@@ -426,93 +446,101 @@ onMounted(fetchObjects)
 </script>
 
 <style scoped>
-.customer-layout {
-  display: grid;
-  grid-template-columns: 206px auto 1fr;
-  min-height: 100vh;
-  background: #f9fafb;
-}
-
-.sidebar {
-  grid-column: 1;
-  width: 206px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 20px 18px;
-  background: #ffffff;
-  border-right: 1px solid #e5e7eb;
-}
-
-.sidebar-logo {
-  font-size: 20px;
-  font-weight: 700;
-  margin-bottom: 24px;
-}
-
-.sidebar-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.nav-item {
+.customer-header-left {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  text-align: left;
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: none;
-  background: transparent;
-  font-size: 14px;
-  color: #4b5563;
-  cursor: pointer;
+  gap: 10px;
+  flex-wrap: wrap;
 }
-.nav-item--active { background: #eef2ff; color: #4338ca; }
-.nav-item[disabled] { opacity: 0.5; cursor: default; }
 
-.nav-badge {
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
+.map-btn {
+  padding: 8px 16px;
   border-radius: 999px;
-  background: #dc2626;
-  color: #fff;
-  font-size: 12px;
-  display: inline-flex;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #374151;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.map-btn:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.modal-map-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.modal-map-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.close-btn:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.modal-card{
+  width: 100%;
+  max-width: 560px;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 22px 24px 20px;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+  box-sizing: border-box;
+}
+
+.modal-card--map {
+  width: min(100%, 960px);
+  max-width: 960px;
+  padding: 20px 22px;
+}
+
+.map-placeholder {
+  height: 360px;
+  border-radius: 12px;
+  border: 2px dashed #d1d5db;
+  background: #f9fafb;
+  display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.sidebar-bottom { display: flex; flex-direction: column; gap: 10px; }
-
-.role-badge {
-  display: inline-flex;
+.map-placeholder-inner {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: #6b7280;
+  gap: 8px;
+  color: #9ca3af;
+  font-size: 14px;
 }
 
-.role-dot { width: 10px; height: 10px; border-radius: 999px; }
-.role-dot--inspector { background: #9524c9; }
-
-.logout-button {
-  padding: 7px 16px;
-  border-radius: 999px;
-  border: 1px solid #e5e7eb;
-  background: #ffffff;
-  font-size: 13px;
-  color: #6b7280;
-  cursor: pointer;
+.map-icon {
+  font-size: 40px;
 }
 
-.customer-main {
-  grid-column: 2;
-  padding: 20px 24px;
-  box-sizing: border-box;
-  margin-left: 35px;
+.map-hint {
+  font-size: 12px;
+  color: #d1d5db;
 }
 
 .customer-header {
@@ -614,11 +642,12 @@ onMounted(fetchObjects)
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(15, 23, 42, 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 200;
+  padding: 16px;
 }
 
 .modal {
@@ -736,4 +765,15 @@ onMounted(fetchObjects)
 }
 .reject-btn:hover { background: #fecaca; }
 .reject-btn:disabled { opacity: 0.6; cursor: default; }
+
+@media (max-width: 768px) {
+  .modal-card--map {
+    width: 100%;
+    max-width: calc(100vw - 32px);
+    padding: 16px;
+  }
+  .map-placeholder {
+    height: 280px;
+  }
+}
 </style>
