@@ -2,14 +2,6 @@ package models
 
 import "time"
 
-type WorkItem struct {
-	ID       uint    `gorm:"primaryKey" json:"id"`
-	ObjectID uint    `json:"object_id"`
-	Name     string  `json:"name"`
-	Unit     string  `json:"unit"`     // м2, шт — можно оставить пустым
-	PlanQty  float64 `json:"plan_qty"` // плановый объем
-}
-
 type WorkReportStatus string
 
 const (
@@ -39,4 +31,30 @@ type MaterialDelivery struct {
 	Material   string    `json:"material"`
 	Qty        float64   `json:"qty"`
 	Source     string    `json:"source"` // "MANUAL" | "CV"
+}
+
+type WorkItemStatus string
+
+const (
+	WorkItemStatusPlanned    WorkItemStatus = "PLANNED"
+	WorkItemStatusInProgress WorkItemStatus = "IN_PROGRESS"
+	WorkItemStatusDone       WorkItemStatus = "DONE"
+	WorkItemStatusDelayed    WorkItemStatus = "DELAYED"
+)
+
+type WorkItem struct {
+	ID               uint           `gorm:"primaryKey" json:"id"`
+	ObjectID         uint           `json:"object_id"`
+	Name             string         `json:"name"`
+	Description      string         `json:"description"`
+	Unit             string         `json:"unit"`
+	PlanQty          float64        `json:"plan_qty"`
+	PlannedStartDate *time.Time     `json:"planned_start_date,omitempty"`
+	PlannedEndDate   *time.Time     `json:"planned_end_date,omitempty"`
+	ActualStartDate  *time.Time     `json:"actual_start_date,omitempty"`
+	ActualEndDate    *time.Time     `json:"actual_end_date,omitempty"`
+	SortOrder        int            `json:"sort_order"`
+	Status           WorkItemStatus `json:"status"`
+	DependsOnID      *uint          `json:"depends_on_id,omitempty"`
+	Progress         float64        `json:"progress" gorm:"default:0"`
 }
