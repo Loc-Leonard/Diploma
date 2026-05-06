@@ -1,6 +1,7 @@
 package inspector
 
 import (
+	//"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/Loc-Leonard/Diploma/internal/auth"
 	"github.com/Loc-Leonard/Diploma/internal/models"
+	//"github.com/Loc-Leonard/Diploma/internal/objectcore"
 )
 
 func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
@@ -66,22 +68,6 @@ type InspectorObjectListItem struct {
 	ForemanName      string              `json:"foreman_name"`
 	PlannedStartDate *time.Time          `json:"planned_start_date"`
 	HasPendingAction bool                `json:"has_pending_action"`
-}
-
-type InspectorObjectDetailsDTO struct {
-	ID                     uint                `json:"id"`
-	Name                   string              `json:"name"`
-	City                   string              `json:"city"`
-	Address                string              `json:"address"`
-	Description            string              `json:"description"`
-	Status                 models.ObjectStatus `json:"status"`
-	PlannedStartDate       *time.Time          `json:"planned_start_date"`
-	PlannedEndDate         *time.Time          `json:"planned_end_date"`
-	ActualStartDate        *time.Time          `json:"actual_start_date"`
-	ForemanName            string              `json:"foreman_name"`
-	InitChecklistJSON      string              `json:"init_checklist_json"`
-	InitActFilePath        string              `json:"init_act_file_path"`
-	ActivationRejectReason string              `json:"activation_reject_reason"`
 }
 
 // GET /inspector/dashboard/checks
@@ -284,30 +270,93 @@ func (h *Handler) ObjectDetails(c *gin.Context) {
 		return
 	}
 
-	var foreman models.User
+	// Загружаем связанных пользователей
+	var customer, foreman, inspector models.User
+
+	customerName := ""
+	if obj.CustomerControlUserID != 0 {
+		if err := h.db.First(&customer, obj.CustomerControlUserID).Error; err == nil {
+			customerName = customer.FullName
+		}
+	}
+
 	foremanName := ""
 	if obj.ForemanUserID != 0 {
-		if err := h.db.
-			Where("id = ? AND role = ?", obj.ForemanUserID, models.RoleForeman).
-			First(&foreman).Error; err == nil {
+		if err := h.db.First(&foreman, obj.ForemanUserID).Error; err == nil {
 			foremanName = foreman.FullName
 		}
 	}
 
-	c.JSON(http.StatusOK, InspectorObjectDetailsDTO{
+	inspectorName := ""
+	if obj.InspectorUserID != 0 {
+		if err := h.db.First(&inspector, obj.InspectorUserID).Error; err == nil {
+			inspectorName = inspector.FullName
+		}
+	}
+
+	// Загружаем work_items и deliveries
+	var workItems []models.WorkItem
+	h.db.Where("object_id = ?", obj.ID).Order("id ASC").Find(&workItems)
+
+	var deliveries []models.MaterialDelivery
+	h.db.Where("object_id = ?", obj.ID).Order("id ASC").Find(&deliveries)
+
+	type PersonDTO struct {
+		ID       uint   `json:"id"`
+		FullName string `json:"full_name"`
+	}
+
+	type ObjectDTO struct {
+		ID                     uint                `json:"id"`
+		Name                   string              `json:"name"`
+		City                   string              `json:"city"`
+		Address                string              `json:"address"`
+		Description            string              `json:"description"`
+		Status                 models.ObjectStatus `json:"status"`
+		Lat                    float64             `json:"lat"`
+		Lng                    float64             `json:"lng"`
+		PlannedStartDate       *time.Time          `json:"planned_start_date"`
+		PlannedEndDate         *time.Time          `json:"planned_end_date"`
+		ActualStartDate        *time.Time          `json:"actual_start_date"`
+		Customer               *PersonDTO          `json:"customer,omitempty"`
+		Foreman                *PersonDTO          `json:"foreman,omitempty"`
+		Inspector              *PersonDTO          `json:"inspector,omitempty"`
+		InitChecklistJSON      string              `json:"init_checklist_json"`
+		InitActFilePath        string              `json:"init_act_file_path"`
+		ActivationRejectReason string              `json:"activation_reject_reason"`
+	}
+
+	objDTO := ObjectDTO{
 		ID:                     obj.ID,
 		Name:                   obj.Name,
 		City:                   obj.City,
 		Address:                obj.Address,
 		Description:            obj.Description,
 		Status:                 obj.Status,
+		Lat:                    obj.Lat,
+		Lng:                    obj.Lng,
 		PlannedStartDate:       obj.PlannedStartDate,
 		PlannedEndDate:         obj.PlannedEndDate,
 		ActualStartDate:        obj.ActualStartDate,
-		ForemanName:            foremanName,
 		InitChecklistJSON:      obj.InitChecklistJSON,
 		InitActFilePath:        obj.InitActFilePath,
 		ActivationRejectReason: obj.ActivationRejectReason,
+	}
+
+	if customerName != "" {
+		objDTO.Customer = &PersonDTO{ID: obj.CustomerControlUserID, FullName: customerName}
+	}
+	if foremanName != "" {
+		objDTO.Foreman = &PersonDTO{ID: obj.ForemanUserID, FullName: foremanName}
+	}
+	if inspectorName != "" {
+		objDTO.Inspector = &PersonDTO{ID: obj.InspectorUserID, FullName: inspectorName}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"object":     objDTO,
+		"work_items": workItems,
+		"deliveries": deliveries,
 	})
 }
 

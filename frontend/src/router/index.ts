@@ -3,28 +3,15 @@ import LoginView from '../views/LoginView.vue'
 import ChangePasswordView from '../views/ChangePasswordView.vue'
 import AdminUsersView from '../views/AdminUsersView.vue'
 import CustomerObjectsView from '../views/CustomerObjectsView.vue'
+import CustomerObjectCreate from '../views/CustomerObjectCreate.vue'
+import ForemanObjectsView from '../views/ForemanObjectsView.vue'
+import InspectorLayout from '@/views/InspectorLayout.vue'
+import InspectorDashboardView from '../views/InspectorDashboardView.vue'
+import ObjectDetailView from '../views/ObjectDetailView.vue'
 import { useAuthStore } from '../stores/auth'
 
-import InspectorLayout from '@/views/InspectorLayout.vue'
-import ForemanObjectView from '../views/ForemanObjectView.vue'
-import ForemanObjectsView from '../views/ForemanObjectsView.vue'
-import InspectorDashboardView from '../views/InspectorDashboardView.vue'
-import CustomerObjectCreate from '../views/CustomerObjectCreate.vue'
-import CustomerObjectView from '@/views/CustomerObjectView.vue'
-
-
 const routes: RouteRecordRaw[] = [
-  {
-    path: '/customer/objects/new',
-    name: 'customer-object-create',
-    component: CustomerObjectCreate
-
-  },
-  {
-    path: '/login',
-    name: 'login',
-    component: LoginView,
-  },
+  { path: '/login', name: 'login', component: LoginView },
   {
     path: '/change-password',
     name: 'change-password',
@@ -38,16 +25,22 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, adminOnly: true },
   },
   {
+    path: '/customer/objects/new',
+    name: 'customer-object-create',
+    component: CustomerObjectCreate,
+    meta: { requiresAuth: true, customerOnly: true },
+  },
+  {
     path: '/customer/objects',
     name: 'customer-objects',
     component: CustomerObjectsView,
     meta: { requiresAuth: true, customerOnly: true },
   },
   {
-    path: '/customer/object/:id',
+    path: '/customer/objects/:id',
     name: 'customer-object-details',
-    component: CustomerObjectView,
-    meta: { requiresAuth: true, customerOnly: true }
+    component: ObjectDetailView,
+    meta: { requiresAuth: true, customerOnly: true },
   },
   {
     path: '/foreman/objects',
@@ -58,83 +51,52 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/foreman/objects/:id',
     name: 'foreman-object',
-    component: ForemanObjectView,
-    props: true,
+    component: ObjectDetailView,
     meta: { requiresAuth: true, foremanOnly: true },
   },
   {
-    path: '/:pathMatch(.*)*',
-    redirect: '/login',
+    path: '/inspector',
+    component: InspectorLayout,
+    meta: { requiresAuth: true, inspectorOnly: true },
+    children: [
+      { path: '', redirect: { name: 'inspector-checks' } },
+      { path: 'checks', name: 'inspector-checks', component: InspectorDashboardView },
+      {
+        path: 'objects',
+        name: 'inspector-objects',
+        component: () => import('../views/InspectorObjectsView.vue'),
+      },
+    ],
   },
+  // Detail инспектора — вне InspectorLayout, чтобы занять весь экран
   {
-  path: '/inspector',
-  component: InspectorLayout,
-  meta: { requiresAuth: true, inspectorOnly: true },
-  children: [
-    {
-      path: '',
-      redirect: { name: 'inspector-checks' },
-    },
-    {
-      path: 'checks',
-      name: 'inspector-checks',
-      component: InspectorDashboardView,
-    },
-    {
-      path: 'objects',
-      name: 'inspector-objects',
-      component: () => import('../views/InspectorObjectsView.vue'),
-    },
-  ],
-},
+    path: '/inspector/objects/:id',
+    name: 'inspector-object-details',
+    component: ObjectDetailView,
+    meta: { requiresAuth: true, inspectorOnly: true },
+  },
+  { path: '/:pathMatch(.*)*', redirect: '/login' },
 ]
 
-const router = createRouter({
-  history: createWebHistory(),
-  routes,
-})
+const router = createRouter({ history: createWebHistory(), routes })
 
 router.beforeEach((to) => {
   const auth = useAuthStore()
 
-  // 1) Требуется авторизация — а её нет
-  if (to.meta.requiresAuth && !auth.isAuthenticated) {
-    return { name: 'login' }
-  }
+  if (to.meta.requiresAuth && !auth.isAuthenticated) return { name: 'login' }
+  if (to.meta.adminOnly     && auth.user?.role !== 'ADMIN')     return { name: 'login' }
+  if (to.meta.customerOnly  && auth.user?.role !== 'CUSTOMER')  return { name: 'login' }
+  if (to.meta.foremanOnly   && auth.user?.role !== 'FOREMAN')   return { name: 'login' }
+  if (to.meta.inspectorOnly && auth.user?.role !== 'INSPECTOR') return { name: 'login' }
 
-  // 2) Ролевые ограничения
-  if (to.meta.adminOnly && auth.user?.role !== 'ADMIN') {
-    return { name: 'login' }
-  }
-
-  if (to.meta.customerOnly && auth.user?.role !== 'CUSTOMER') {
-    return { name: 'login' }
-  }
-
-  if (to.meta.foremanOnly && auth.user?.role !== 'FOREMAN') {
-    return { name: 'login' }
-  }
-
-  if (to.meta.inspectorOnly && auth.user?.role !== 'INSPECTOR') {
-    return { name: 'login' }
-  }
-
-  // 3) Если уже залогинен и идём на /login — перекидываем по роли
   if (to.name === 'login' && auth.isAuthenticated) {
     switch (auth.user?.role) {
-      case 'ADMIN':
-        return { name: 'admin-users' }
-      case 'CUSTOMER':
-        return { name: 'customer-objects' }
-      case 'FOREMAN':
-        return { name: 'foreman-objects' }
-      case 'INSPECTOR':
-        return { name: 'inspector-checks' }
+      case 'ADMIN':     return { name: 'admin-users' }
+      case 'CUSTOMER':  return { name: 'customer-objects' }
+      case 'FOREMAN':   return { name: 'foreman-objects' }
+      case 'INSPECTOR': return { name: 'inspector-checks' }
     }
   }
-
-  // ничего не возвращаем — переход продолжается
 })
-
 
 export default router
