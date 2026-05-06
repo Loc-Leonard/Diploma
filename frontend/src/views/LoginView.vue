@@ -39,7 +39,7 @@ const error = ref<string | null>(null)
 const router = useRouter()
 const auth = useAuthStore()
 
-const API_BASE = 'http://localhost:8080'
+const API_BASE = import.meta.env.VITE_API_URL as string
 
 async function onSubmit() {
   error.value = null

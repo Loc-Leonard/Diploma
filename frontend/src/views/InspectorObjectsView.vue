@@ -217,7 +217,7 @@ import { ref, computed, onMounted, watch, reactive } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
-const API_BASE = 'http://localhost:8080'
+const API_BASE = import.meta.env.VITE_API_URL as string
 const auth = useAuthStore()
 const router = useRouter()
 const route = useRoute()

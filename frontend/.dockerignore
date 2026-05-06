@@ -1,0 +1,16 @@
+node_modules
+dist
+build
+.cache
+.git
+.gitignore
+Dockerfile
+docker-compose.yml
+*.log
+*.md
+*.yml
+.env
+.idea
+.vscode
+.sass-cache
+cypress

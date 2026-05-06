@@ -1,13 +1,35 @@
 services:
-  app:
-    image: my-app
+  frontend-dev:
+    build:
+      context: ./frontend          # путь от корня репозитория
+      dockerfile: Dockerfile       # по‑умолчанию ищет Dockerfile
+      target: dev                 # явно указываем цель (можно опустить, т.к. один слой)
+    container_name: frontend-dev
+    ports:
+      - "5173:5173"                # Vite‑dev‑сервер (http://localhost:5173)
+    volumes:
+      # 1️⃣ Монтируем весь исходный код в контейнер
+      - ./frontend:/app
+      # 2️⃣ Объём для node_modules, чтобы он не стирался при монтировании кода
+      - /app/node_modules
+    environment:
+      # Пример: передаём URL бекенда в Vite (переменные, начинающиеся с VITE_)
+      - VITE_API_URL=http://backend:8080
+    depends_on:
+      - backend
+    networks:
+      - backend-net
+    restart: unless-stopped
+
+  backend:
+    image: new_app
     depends_on:
       postgres:
         condition: service_healthy
       cv-agent:
         condition: service_started
-    ports:
-      - "8080:8080"
+    # ports:
+    #   - "8080:8080"
     env_file:
       - .env
     environment:
@@ -20,9 +42,11 @@ services:
     restart: unless-stopped
 
   cv-agent:
-    image: diploma-cv-agent
-    ports:
-      - "8000:8000"
+    build:
+      context: ./Learning CV/agent
+      dockerfile: Dockerfile
+    # ports:
+    #   - "8000:8000"
     networks:
       - backend-net
     restart: unless-stopped
@@ -53,5 +77,5 @@ networks:
     driver: bridge
 
 volumes:
-  pgdata:
+  pgdata: 
   storage:
