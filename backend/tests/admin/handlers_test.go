@@ -12,9 +12,9 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
-	"github.com/Loc-Leonard/Diploma/internal/admin"
-	"github.com/Loc-Leonard/Diploma/internal/auth"
-	"github.com/Loc-Leonard/Diploma/internal/models"
+	"github.com/Loc-Leonard/Diploma/backend/internal/admin"
+	"github.com/Loc-Leonard/Diploma/backend/internal/auth"
+	"github.com/Loc-Leonard/Diploma/backend/internal/models"
 )
 
 func newTestDB(t *testing.T) *gorm.DB {

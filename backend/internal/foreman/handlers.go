@@ -16,9 +16,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	"github.com/Loc-Leonard/Diploma/internal/auth"
-	"github.com/Loc-Leonard/Diploma/internal/cv"
-	"github.com/Loc-Leonard/Diploma/internal/models"
+	"github.com/Loc-Leonard/Diploma/backend/internal/auth"
+	"github.com/Loc-Leonard/Diploma/backend/internal/cv"
+	"github.com/Loc-Leonard/Diploma/backend/internal/models"
 )
 
 type Handler struct {

@@ -12,9 +12,9 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
-	"github.com/Loc-Leonard/Diploma/internal/auth"
-	"github.com/Loc-Leonard/Diploma/internal/inspector"
-	"github.com/Loc-Leonard/Diploma/internal/models"
+	"github.com/Loc-Leonard/Diploma/backend/internal/auth"
+	"github.com/Loc-Leonard/Diploma/backend/internal/inspector"
+	"github.com/Loc-Leonard/Diploma/backend/internal/models"
 )
 
 // ==== DTO для ответов (копия публичных) ====

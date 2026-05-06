@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	"github.com/Loc-Leonard/Diploma/internal/models"
+	"github.com/Loc-Leonard/Diploma/backend/internal/models"
 )
 
 func MustChangePasswordMiddleware(db *gorm.DB) gin.HandlerFunc {

@@ -9,15 +9,15 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
-	"github.com/Loc-Leonard/Diploma/internal/admin"
-	"github.com/Loc-Leonard/Diploma/internal/auth"
-	"github.com/Loc-Leonard/Diploma/internal/config"
-	"github.com/Loc-Leonard/Diploma/internal/customer"
-	"github.com/Loc-Leonard/Diploma/internal/cv"
-	"github.com/Loc-Leonard/Diploma/internal/db"
-	"github.com/Loc-Leonard/Diploma/internal/foreman"
-	"github.com/Loc-Leonard/Diploma/internal/inspector"
-	"github.com/Loc-Leonard/Diploma/internal/models"
+	"github.com/Loc-Leonard/Diploma/backend/internal/admin"
+	"github.com/Loc-Leonard/Diploma/backend/internal/auth"
+	"github.com/Loc-Leonard/Diploma/backend/internal/config"
+	"github.com/Loc-Leonard/Diploma/backend/internal/customer"
+	"github.com/Loc-Leonard/Diploma/backend/internal/cv"
+	"github.com/Loc-Leonard/Diploma/backend/internal/db"
+	"github.com/Loc-Leonard/Diploma/backend/internal/foreman"
+	"github.com/Loc-Leonard/Diploma/backend/internal/inspector"
+	"github.com/Loc-Leonard/Diploma/backend/internal/models"
 )
 
 func main() {
