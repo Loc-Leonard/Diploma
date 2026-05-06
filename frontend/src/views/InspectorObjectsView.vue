@@ -1,91 +1,102 @@
 <template>
   <div>
-      <header class="customer-header">
-        <div class="customer-header-left">
-          <h1 class="customer-title">Объекты</h1>
-          <button class="map-btn" @click="showMap = true">
-            🗺 Показать на карте
-          </button>
+    <header class="customer-header">
+      <div class="customer-header-left">
+        <h1 class="customer-title">Объекты</h1>
+        <button class="map-btn" @click="showMap = true">
+          🗺 Показать на карте
+        </button>
+      </div>
+      <div class="customer-header-right">
+        <div class="search-wrapper">
+          <input v-model="search" type="text" placeholder="Поиск по названию, городу, адресу" />
         </div>
-        <div class="customer-header-right">
-          <div class="search-wrapper">
-            <input v-model="search" type="text" placeholder="Поиск по названию, городу, адресу" />
+        <select v-model="statusFilter" class="filter-select">
+          <option value="">Все статусы</option>
+          <option value="WAITING_INSPECTOR_CONFIRMATION">Ожидают подтверждения</option>
+          <option value="ACTIVE">Активные</option>
+          <option value="PLANNED">Запланированные</option>
+          <option value="FINISHED">Завершённые</option>
+        </select>
+      </div>
+    </header>
+
+    <!-- Секция: требуют подтверждения -->
+    <section v-if="pendingObjects.length" class="pending-section">
+      <div class="section-header">
+        <h2>Требуют подтверждения</h2>
+        <span class="pending-pill">{{ pendingObjects.length }}</span>
+      </div>
+      <div class="object-grid">
+        <article
+          v-for="obj in pendingObjects"
+          :key="obj.id"
+          class="object-card object-card--pending"
+        >
+          <div class="object-top">
+            <div>
+              <div class="object-name">{{ obj.name }}</div>
+              <div class="object-address">{{ obj.city }}, {{ obj.address }}</div>
+            </div>
+            <span class="status-chip status-chip--pending">Ожидает подтверждения</span>
           </div>
-          <select v-model="statusFilter" class="filter-select">
-            <option value="">Все статусы</option>
-            <option value="WAITING_INSPECTOR_CONFIRMATION">Ожидают подтверждения</option>
-            <option value="ACTIVE">Активные</option>
-            <option value="PLANNED">Запланированные</option>
-            <option value="FINISHED">Завершённые</option>
-          </select>
-        </div>
-      </header>
+          <div class="object-meta">
+            <div><span class="label">Прораб:</span> {{ obj.foreman_name || '—' }}</div>
+            <div><span class="label">Плановая дата:</span> {{ formatDate(obj.planned_start_date) }}</div>
+          </div>
+          <div class="object-actions">
+            <button class="primary-btn" @click="openApprovalModal(obj)">Рассмотреть</button>
+          </div>
+        </article>
+      </div>
+    </section>
 
-      <!-- Секция: требуют подтверждения -->
-      <section v-if="pendingObjects.length" class="pending-section">
-        <div class="section-header">
-          <h2>Требуют подтверждения</h2>
-          <span class="pending-pill">{{ pendingObjects.length }}</span>
-        </div>
-        <div class="object-grid">
-          <article
-            v-for="obj in pendingObjects"
-            :key="obj.id"
-            class="object-card object-card--pending"
-          >
-            <div class="object-top">
-              <div>
-                <div class="object-name">{{ obj.name }}</div>
-                <div class="object-address">{{ obj.city }}, {{ obj.address }}</div>
-              </div>
-              <span class="status-chip status-chip--pending">Ожидает подтверждения</span>
+    <!-- Секция: все объекты -->
+    <section class="list-section">
+      <div class="section-header">
+        <h2>Все объекты</h2>
+        <span class="count-text">{{ filteredObjects.length }}</span>
+      </div>
+      <div v-if="loading" class="state">Загружаю объекты...</div>
+      <div v-else-if="error" class="state state--error">{{ error }}</div>
+      <div v-else-if="!filteredObjects.length" class="state">Объектов пока нет</div>
+      <div v-else class="object-grid">
+        <article v-for="obj in filteredObjects" :key="obj.id" class="object-card">
+          <div class="object-top">
+            <div>
+              <div class="object-name">{{ obj.name }}</div>
+              <div class="object-address">{{ obj.city }}, {{ obj.address }}</div>
             </div>
-            <div class="object-meta">
-              <div><span class="label">Прораб:</span> {{ obj.foreman_name || '—' }}</div>
-              <div><span class="label">Плановая дата:</span> {{ formatDate(obj.planned_start_date) }}</div>
-            </div>
-            <div class="object-actions">
-              <button class="primary-btn" @click="openModal(obj)">Рассмотреть</button>
-            </div>
-          </article>
-        </div>
-      </section>
+            <span class="status-chip" :class="statusClass(obj.status)">
+              {{ statusLabel(obj.status) }}
+            </span>
+          </div>
+          <div class="object-meta">
+            <div><span class="label">Прораб:</span> {{ obj.foreman_name || '—' }}</div>
+            <div><span class="label">Плановая дата:</span> {{ formatDate(obj.planned_start_date) }}</div>
+          </div>
+          <div class="object-actions">
+            <!-- ещё не подтверждён → модалка -->
+            <button
+              v-if="obj.has_pending_action || obj.status === 'WAITING_INSPECTOR_CONFIRMATION'"
+              class="primary-btn"
+              @click="openApprovalModal(obj)"
+            >
+              Рассмотреть
+            </button>
 
-      <!-- Секция: все объекты -->
-      <section class="list-section">
-        <div class="section-header">
-          <h2>Все объекты</h2>
-          <span class="count-text">{{ filteredObjects.length }}</span>
-        </div>
-        <div v-if="loading" class="state">Загружаю объекты...</div>
-        <div v-else-if="error" class="state state--error">{{ error }}</div>
-        <div v-else-if="!filteredObjects.length" class="state">Объектов пока нет</div>
-        <div v-else class="object-grid">
-          <article v-for="obj in filteredObjects" :key="obj.id" class="object-card">
-            <div class="object-top">
-              <div>
-                <div class="object-name">{{ obj.name }}</div>
-                <div class="object-address">{{ obj.city }}, {{ obj.address }}</div>
-              </div>
-              <span class="status-chip" :class="statusClass(obj.status)">
-                {{ statusLabel(obj.status) }}
-              </span>
-            </div>
-            <div class="object-meta">
-              <div><span class="label">Прораб:</span> {{ obj.foreman_name || '—' }}</div>
-              <div><span class="label">Плановая дата:</span> {{ formatDate(obj.planned_start_date) }}</div>
-            </div>
-            <div class="object-actions">
-              <button v-if="obj.has_pending_action" class="primary-btn" @click="openModal(obj)">
-                Рассмотреть
-              </button>
-              <button v-else class="secondary-btn" @click="openModal(obj)">
-                Открыть
-              </button>
-            </div>
-          </article>
-        </div>
-      </section>
+            <!-- активный / завершённый → отдельная страница -->
+            <button
+              v-else-if="obj.status === 'ACTIVE' || obj.status === 'FINISHED'"
+              class="secondary-btn"
+              @click="openDetailsPage(obj)"
+            >
+              Открыть
+            </button>
+          </div>
+        </article>
+      </div>
+    </section>
 
     <!-- Модалка -->
     <Teleport to="body">
@@ -141,7 +152,6 @@
               </div>
             </div>
 
-            <!-- Форма отклонения -->
             <div v-if="modal.mode === 'reject'" class="reject-form">
               <label class="reject-label">
                 Причина отклонения <span class="required">*</span>
@@ -157,12 +167,10 @@
           </div>
 
           <div class="modal-footer">
-            <!-- Объект не требует действия — просто закрыть -->
             <template v-if="!modal.obj?.has_pending_action">
               <button class="secondary-btn" @click="closeModal">Закрыть</button>
             </template>
 
-            <!-- Режим выбора действия -->
             <template v-else-if="modal.mode === 'idle'">
               <button class="secondary-btn" @click="closeModal">Закрыть</button>
               <button class="reject-btn" @click="modal.mode = 'reject'" :disabled="modal.submitting">
@@ -173,7 +181,6 @@
               </button>
             </template>
 
-            <!-- Режим ввода причины отклонения -->
             <template v-else-if="modal.mode === 'reject'">
               <button class="secondary-btn" @click="modal.mode = 'idle'" :disabled="modal.submitting">
                 Назад
@@ -187,7 +194,8 @@
         </div>
       </div>
     </Teleport>
-    <!--MAP-->
+
+    <!-- MAP -->
     <div v-if="showMap" class="modal-overlay" @click.self="showMap = false">
       <div class="modal-card modal-card--map">
         <div class="modal-map-header">
@@ -210,13 +218,15 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, reactive } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useInspectorNotificationsStore } from '@/stores/inspectorNotifications'
+
 const notifications = useInspectorNotificationsStore()
 const API_BASE = 'http://localhost:8080'
 const auth = useAuthStore()
 const showMap = ref(false)
-
+const router = useRouter()
 
 type InspectorObjectStatus = 'PLANNED' | 'WAITING_INSPECTOR_CONFIRMATION' | 'ACTIVE' | 'FINISHED'
 
@@ -265,14 +275,13 @@ const modal = reactive({
   submitting: false,
 })
 
-
-
 const pendingObjects = notifications.pendingObjects
 
 const filteredObjects = computed(() => {
   const q = search.value.trim().toLowerCase()
   return objects.value.filter(o => {
-    const matchesSearch = !q ||
+    const matchesSearch =
+      !q ||
       o.name.toLowerCase().includes(q) ||
       o.city.toLowerCase().includes(q) ||
       o.address.toLowerCase().includes(q) ||
@@ -304,20 +313,44 @@ async function fetchObjectDetails(id: number) {
   modal.loading = true
   modal.fetchError = null
   modal.details = null
+
   try {
     const res = await fetch(`${API_BASE}/inspector/objects/${id}`, {
       headers: { Authorization: `Bearer ${auth.token}` },
     })
-    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Ошибка загрузки объекта')
-    modal.details = await res.json()
+
+    if (!res.ok) {
+      throw new Error((await res.json().catch(() => ({}))).error ?? 'Ошибка загрузки')
+    }
+
+    const data = await res.json()
+console.log('INSPECTOR DETAILS', data)
+
+const core = data.object  // ← вот это добавилось
+
+modal.details = {
+  id: core.id,
+  name: core.name ?? '',
+  city: core.city ?? '',
+  address: core.address ?? '',
+  description: core.description ?? '',
+  status: core.status ?? 'PLANNED',
+  foreman_name: core.foreman?.full_name ?? '',
+  planned_start_date: core.planned_start_date ?? null,
+  planned_end_date: core.planned_end_date ?? null,
+  actual_start_date: core.actual_start_date ?? null,
+  init_checklist_json: core.init_checklist_json ?? '',
+  init_act_file_path: core.init_act_file_path ?? '',
+  activation_reject_reason: core.activation_reject_reason ?? '',
+}
   } catch (e: any) {
-    modal.fetchError = e.message || 'Ошибка'
+    modal.fetchError = e.message
   } finally {
     modal.loading = false
   }
 }
 
-function openModal(obj: InspectorObjectItem) {
+function openApprovalModal(obj: InspectorObjectItem) {
   modal.open = true
   modal.obj = obj
   modal.details = null
@@ -326,6 +359,10 @@ function openModal(obj: InspectorObjectItem) {
   modal.submitError = null
   modal.submitting = false
   fetchObjectDetails(obj.id)
+}
+
+function openDetailsPage(obj: InspectorObjectItem) {
+  router.push({ name: 'inspector-object-details', params: { id: obj.id } })
 }
 
 function closeModal() {
@@ -381,8 +418,6 @@ function formatChecklist(json: string) {
   catch { return json }
 }
 
-
-
 function statusLabel(status: InspectorObjectStatus) {
   const map: Record<InspectorObjectStatus, string> = {
     PLANNED: 'Запланирован',
@@ -412,7 +447,6 @@ onMounted(fetchObjects)
 </script>
 
 <style scoped>
-
 .customer-header-left {
   display: flex;
   align-items: center;
@@ -435,8 +469,6 @@ onMounted(fetchObjects)
   background: #f3f4f6;
   border-color: #9ca3af;
 }
-
-
 
 .modal-map-header {
   display: flex;
@@ -511,7 +543,6 @@ onMounted(fetchObjects)
   font-size: 12px;
   color: #d1d5db;
 }
-
 
 .customer-header {
   display: flex;
@@ -746,5 +777,4 @@ onMounted(fetchObjects)
     height: 280px;
   }
 }
-
 </style>
