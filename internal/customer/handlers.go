@@ -33,6 +33,11 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 		gr.POST("/objects/:id/activate", h.ActivateObject)
 
 		gr.GET("/objects/:id", h.GetObject)
+
+		gr.GET("objects/:id/work-items", h.ListWorkItems)
+		gr.POST("objects/:id/work-items", h.CreateWorkItem)
+		gr.PUT("objects/:id/work-items/:wid", h.UpdateWorkItem)
+		gr.DELETE("objects/:id/work-items/:wid", h.DeleteWorkItem)
 	}
 }
 
@@ -92,7 +97,7 @@ type DashboardObjectDTO struct {
 	Address string              `json:"address"`
 	Status  models.ObjectStatus `json:"status"`
 
-	Progress int `json:"progress"`
+	Progress float64 `json:"progress"`
 
 	Foreman *struct {
 		ID       uint   `json:"id"`
@@ -220,7 +225,7 @@ func (h *Handler) DashboardObjects(c *gin.Context) {
 			City:                   o.City,
 			Address:                o.Address,
 			Status:                 o.Status,
-			Progress:               0, // потом посчитаем
+			Progress:               objectcore.CalcProgress(h.db, o.ID),
 			PlannedStartDate:       o.PlannedStartDate,
 			PlannedEndDate:         o.PlannedEndDate,
 			Lat:                    o.Lat,
@@ -375,6 +380,123 @@ func (h *Handler) GetObject(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "access denied"})
 		return
 	}
-	core := objectcore.BuildObjectCoreDTO(h.db, obj)
-	c.JSON(http.StatusOK, core)
+	detail := objectcore.BuildObjectDetailDTO(h.db, obj)
+	c.JSON(http.StatusOK, detail)
+}
+
+func (h Handler) ListWorkItems(c *gin.Context) {
+	userID := auth.UserIDFromContext(c)
+	objectID := c.Param("id")
+
+	//Проверка, что объект существует и принадлежит этому заказчику
+
+	var obj models.Object
+	if err := h.db.Where("id = ? AND customer_control_user_id = ?", objectID, userID).
+		First(&obj).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "object not found"})
+		return
+	}
+	var items []models.WorkItem
+	h.db.Where("object_id = ?", obj.ID).Order("sort_order ASC, id ASC").Find(&items)
+	c.JSON(http.StatusOK, items)
+}
+
+type WorkItemInput struct {
+	Name             string     `json:"name" binding:"required"`
+	Description      string     `json:"description"`
+	Unit             string     `json:"unit"`
+	PlanQty          float64    `json:"plan_qty"`
+	PlannedStartDate *time.Time `json:"planned_start_date"`
+	PlannedEndDate   *time.Time `json:"planned_end_date"`
+	SortOrder        int        `json:"sort_order"`
+	DependsOnID      *uint      `json:"depends_on_id"`
+}
+
+func (h Handler) CreateWorkItem(c *gin.Context) {
+	userID := auth.UserIDFromContext(c)
+	objectID := c.Param("id")
+
+	var obj models.Object
+	if err := h.db.Where("id = ? AND customer_control_user_id = ?", objectID, userID).First(&obj).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "object not found"})
+		return
+	}
+
+	var in WorkItemInput
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	item := models.WorkItem{
+		ObjectID:         obj.ID,
+		Name:             in.Name,
+		Description:      in.Description,
+		Unit:             in.Unit,
+		PlanQty:          in.PlanQty,
+		PlannedStartDate: in.PlannedStartDate,
+		PlannedEndDate:   in.PlannedEndDate,
+		SortOrder:        in.SortOrder,
+		Status:           models.WorkItemStatusPlanned,
+		DependsOnID:      in.DependsOnID,
+	}
+
+	if err := h.db.Create(&item).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "db error"})
+		return
+	}
+	c.JSON(http.StatusCreated, item)
+}
+
+func (h Handler) UpdateWorkItem(c *gin.Context) {
+	userID := auth.UserIDFromContext(c)
+	objectID := c.Param("id")
+	wid := c.Param("wid")
+
+	//Проверка доступа к объекту
+	var obj models.Object
+	if err := h.db.Where("id = ? AND customer_control_user_id = ?", objectID, userID).First(&obj).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "object not found"})
+		return
+	}
+
+	var item models.WorkItem
+	if err := h.db.Where("id = ? AND object_id = ?", wid, obj.ID).First(&item).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "work item not found"})
+		return
+	}
+
+	var in WorkItemInput
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	item.Name = in.Name
+	item.Description = in.Description
+	item.Unit = in.Unit
+	item.PlanQty = in.PlanQty
+	item.PlannedStartDate = in.PlannedStartDate
+	item.PlannedEndDate = in.PlannedEndDate
+	item.SortOrder = in.SortOrder
+	item.DependsOnID = in.DependsOnID
+
+	h.db.Save(&item)
+	c.JSON(http.StatusOK, item)
+
+}
+
+func (h Handler) DeleteWorkItem(c *gin.Context) {
+	userID := auth.UserIDFromContext(c)
+	objectID := c.Param("id")
+	wid := c.Param("wid")
+
+	var obj models.Object
+	if err := h.db.Where("id = ? AND customer_control_user_id = ?", objectID, userID).First(&obj).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "object not found"})
+		return
+	}
+
+	h.db.Where("id = ? AND object_id = ?", wid, obj.ID).Delete(&models.WorkItem{})
+	c.JSON(http.StatusOK, gin.H{"status": "deleted"})
 }
