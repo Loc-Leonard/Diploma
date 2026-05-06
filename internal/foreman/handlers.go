@@ -2,6 +2,7 @@ package foreman
 
 import (
 	"errors"
+	"math"
 	"net/http"
 	"time"
 
@@ -34,7 +35,6 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 	}
 }
 
-// DTO для списка объектов прораба
 type ForemanObjectDTO struct {
 	ID      uint                `json:"id"`
 	Name    string              `json:"name"`
@@ -70,12 +70,6 @@ func (h *Handler) ListObjects(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
-// DTO деталки объекта
-type ForemanObjectDetailDTO struct {
-	Object    ForemanObjectDTO  `json:"object"`
-	WorkItems []models.WorkItem `json:"work_items"`
-}
-
 // GET /foreman/objects/:id
 func (h Handler) ObjectDetail(c *gin.Context) {
 	userID := auth.UserIDFromContext(c)
@@ -91,15 +85,8 @@ func (h Handler) ObjectDetail(c *gin.Context) {
 		return
 	}
 
-	core := objectcore.BuildObjectCoreDTO(h.db, obj)
-
-	var items []models.WorkItem
-	h.db.Where("object_id = ?", obj.ID).Order("id ASC").Find(&items)
-
-	c.JSON(http.StatusOK, gin.H{
-		"object":     core,
-		"work_items": items,
-	})
+	detail := objectcore.BuildObjectDetailDTO(h.db, obj)
+	c.JSON(http.StatusOK, detail)
 }
 
 // POST /foreman/objects/:id/work-reports
@@ -108,6 +95,7 @@ type WorkReportInput struct {
 	Qty        float64 `json:"qty"`
 	Date       string  `json:"date"` // "2006-01-02"
 }
+
 type WorkReportsRequest struct {
 	Reports []WorkReportInput `json:"reports"`
 }
@@ -116,6 +104,7 @@ func (h *Handler) CreateWorkReports(c *gin.Context) {
 	foremanID := auth.UserIDFromContext(c)
 	objectID := c.Param("id")
 
+	// 1. Проверяем доступ к объекту
 	var obj models.Object
 	if err := h.db.
 		Where("id = ? AND foreman_user_id = ?", objectID, foremanID).
@@ -124,12 +113,14 @@ func (h *Handler) CreateWorkReports(c *gin.Context) {
 		return
 	}
 
+	// 2. Читаем тело запроса
 	var req WorkReportsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid payload"})
 		return
 	}
 
+	// 3. Собираем валидные отчёты
 	reports := make([]models.WorkReport, 0, len(req.Reports))
 	for _, r := range req.Reports {
 		if r.Qty <= 0 {
@@ -137,7 +128,7 @@ func (h *Handler) CreateWorkReports(c *gin.Context) {
 		}
 		d, err := time.Parse("2006-01-02", r.Date)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid date"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid date: " + r.Date})
 			return
 		}
 		reports = append(reports, models.WorkReport{
@@ -151,15 +142,20 @@ func (h *Handler) CreateWorkReports(c *gin.Context) {
 	}
 
 	if len(reports) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "no reports"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no valid reports"})
 		return
 	}
 
+	// 4. Сохраняем отчёты
 	if err := h.db.Create(&reports).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "db error"})
 		return
 	}
 
+	// 5. Пересчитываем прогресс — только после сохранения отчётов
+	recalcProgress(h.db, obj.ID)
+
+	// 6. Отвечаем клиенту
 	c.JSON(http.StatusCreated, gin.H{"status": "ok"})
 }
 
@@ -211,4 +207,46 @@ func (h *Handler) CreateDelivery(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"status": "ok"})
+}
+
+// recalcProgress пересчитывает прогресс каждого этапа и общий прогресс объекта
+// на основе суммы фактических qty из отчётов относительно планового qty
+func recalcProgress(db *gorm.DB, objectID uint) error {
+	var items []models.WorkItem
+	db.Where("object_id = ?", objectID).Find(&items)
+	if len(items) == 0 {
+		return nil
+	}
+
+	totalPlan := 0.0
+	totalFact := 0.0
+
+	for _, item := range items {
+		var factQty float64
+		db.Model(&models.WorkReport{}).
+			Where("work_item_id = ?", item.ID).
+			Select("COALESCE(SUM(qty), 0)").
+			Scan(&factQty)
+
+		itemProgress := 0.0
+		if item.PlanQty > 0 {
+			itemProgress = math.Min(factQty/item.PlanQty*100, 100)
+		}
+
+		db.Model(&models.WorkItem{}).
+			Where("id = ?", item.ID).
+			Update("progress", itemProgress)
+
+		totalPlan += item.PlanQty
+		totalFact += factQty
+	}
+
+	objectProgress := 0.0
+	if totalPlan > 0 {
+		objectProgress = math.Min(totalFact/totalPlan*100, 100)
+	}
+
+	return db.Model(&models.Object{}).
+		Where("id = ?", objectID).
+		Update("progress", objectProgress).Error
 }
