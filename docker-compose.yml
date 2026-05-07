@@ -1,6 +1,7 @@
 version: '3.8'
+
 services:
-  app:
+  app:                       # это твой backend
     build: .
     depends_on:
       postgres:
@@ -12,7 +13,29 @@ services:
     networks:
       - backend-net
     restart: unless-stopped
-  
+
+  frontend-dev:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: dev
+    container_name: frontend-dev
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      VITE_API_URL: ${VITE_API_URL}
+      CHOKIDAR_USEPOLLING: "true"
+    env_file:
+      - .env
+    depends_on:
+      - app
+    networks:
+      - backend-net
+    restart: unless-stopped
+
   postgres:
     image: postgres:16
     env_file:
@@ -25,9 +48,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - pgdata:/var/lib/postgresql/data
-      #- ./migrations:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       retries: 5
     networks:
