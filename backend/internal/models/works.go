@@ -23,20 +23,22 @@ type WorkReport struct {
 
 // Поставка материала (упрощённо)
 type MaterialDelivery struct {
-	ID             uint               `gorm:"primaryKey" json:"id"`
-	ObjectID       uint               `json:"object_id"`
-	WorkItemID     *uint              `json:"work_item_id,omitempty"`
-	ForemanID      uint               `json:"foreman_id"`
-	Date           time.Time          `json:"date"`
-	Material       string             `json:"material"`
-	Qty            float64            `json:"qty"`
-	Unit           string             `json:"unit"`
-	DocumentNumber string             `json:"document_number"`
-	Source         string             `json:"source"` // "MANUAL" | "CV"
-	CVConfidence   float64            `json:"cv_confidence"`
-	Documents      []MaterialDocument `json:"documents,omitempty"`
-	CreatedAt      time.Time          `json:"created_at"`
-	UpdatedAt      time.Time          `json:"updated_at"`
+	ID             uint      `gorm:"primaryKey" json:"id"`
+	ObjectID       uint      `json:"object_id"`
+	WorkItemID     *uint     `json:"work_item_id,omitempty"`
+	ForemanID      uint      `json:"foreman_id"`
+	Date           time.Time `json:"date"`
+	Material       string    `json:"material"`
+	Qty            float64   `json:"qty"`
+	Unit           string    `json:"unit"`
+	DocumentNumber string    `json:"document_number"`
+	Source         string    `json:"source"` // "MANUAL" | "CV_AUTO"
+	CVConfidence   float64   `json:"cv_confidence"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+
+	// НЕ добавляйте Documents пока - GORM ругается
+	// Documents     []MaterialDocument `gorm:"foreignKey:DeliveryID"`
 }
 
 type WorkItemStatus string

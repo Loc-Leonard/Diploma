@@ -10,6 +10,7 @@ import (
 
 	"github.com/Loc-Leonard/Diploma/backend/internal/auth"
 	"github.com/Loc-Leonard/Diploma/backend/internal/models"
+	"github.com/Loc-Leonard/Diploma/backend/internal/objectcore"
 )
 
 type Handler struct {

@@ -27,6 +27,18 @@ func main() {
 		BaseURL: cfg.CVServiceURL,
 	}
 
+	database.Exec(`ALTER TABLE "users" DROP CONSTRAINT IF EXISTS "uni_users_email"`)
+	database.Exec(`ALTER TABLE "users" DROP CONSTRAINT IF EXISTS "uni_users_phone"`)
+	database.Exec(`DROP INDEX IF EXISTS "uni_users_email"`) // на всякий случай (вдруг был только индекс)
+	database.Exec(`DROP INDEX IF EXISTS "uni_users_phone"`)
+
+	database.Exec(`DROP TABLE IF EXISTS "objects" CASCADE`)
+	database.Exec(`DROP TABLE IF EXISTS "work_items" CASCADE`)
+	database.Exec(`DROP TABLE IF EXISTS "work_reports" CASCADE`)
+	database.Exec(`DROP TABLE IF EXISTS "material_deliveries" CASCADE`)
+	database.Exec(`DROP TABLE IF EXISTS "material_documents" CASCADE`)
+	database.Exec(`DROP TABLE IF EXISTS "inspections" CASCADE`)
+
 	if err := database.AutoMigrate(
 		&models.User{},
 		&models.Object{},

@@ -15,8 +15,8 @@ const (
 type User struct {
 	ID                 uint      `gorm:"primaryKey" json:"id"`
 	FullName           string    `json:"full_name"`
-	Email              *string   `gorm:"uniqueIndex" json:"email,omitempty"`
-	Phone              *string   `gorm:"uniqueIndex" json:"phone,omitempty"`
+	Email              *string   `gorm:"uniqueIndex"` // без имени
+	Phone              *string   `gorm:"uniqueIndex"` // без имени
 	Role               Role      `json:"role"`
 	PasswordHash       string    `json:"-"`
 	MustChangePassword bool      `json:"must_change_password"`
