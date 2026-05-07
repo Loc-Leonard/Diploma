@@ -31,7 +31,7 @@ func main() {
 		&models.MaterialDelivery{},
 		&models.Inspection{},
 	); err != nil {
-		log.Printf("auto migrate failed: %v", err)
+		log.Fatalf("auto migrate failed: %v", err)
 	}
 
 	seedAdmin(database, cfg)
