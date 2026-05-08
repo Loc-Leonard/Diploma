@@ -1,28 +1,21 @@
-# ------------------------------------------------------------
-#   База – официальный Node.js (alpine – лёгкий)
-# ------------------------------------------------------------
-FROM node:20.19.0-alpine AS dev
-
-# Указываем, что Cypress **не** будет скачивать свой бинарник
-# (это избавит от «Corrupted download» во время сборки)
-ENV CYPRESS_SKIP_BINARY_DOWNLOAD=1
-# (альтернативно) ENV CYPRESS_INSTALL_BINARY=0
-
-# Рабочая папка внутри контейнера
+FROM node:20.19.0-alpine AS base
 WORKDIR /app
 
-# Кешируем зависимости – копируем только описание пакетов
+# Копируем package.json и package-lock.json для кэширования зависимостей
 COPY package.json package-lock.json ./
 
-# Устанавливаем **все** зависимости (prod + dev)
-# – Cypress будет установлен, но без собственного binary
+# Устанавливаем зависимости
 RUN npm ci
 
-# Копируем остальной код (для «npm run dev» он нужен)
+# Продуктивная сборка
+FROM base AS prod
 COPY . .
+RUN npm run build
+EXPOSE 3000
+CMD ["npm", "run", "preview", "--", "--host", "0.0.0.0"]
 
-# Порт, который Vite прослушивает по‑умолчанию
+# Для разработки — копируем код, но не перезатираем node_modules
+FROM base AS dev
+COPY . .
 EXPOSE 5173
-
-# Vite по‑умолчанию слушает localhost; нам нужен 0.0.0.0
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

@@ -105,7 +105,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import CustomerLayout from './CustomerLayout.vue'
 
-const API_BASE = import.meta.env.VITE_API_URL as string
+const API_BASE = 'http://localhost:8080'
 
 const router = useRouter()
 const auth = useAuthStore()

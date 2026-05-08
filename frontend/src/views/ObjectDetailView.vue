@@ -23,7 +23,11 @@
         <div class="page-header-left">
           <button class="back-btn" @click="goBack">← Назад</button>
           <h1 class="page-title">{{ detail?.object.name ?? '...' }}</h1>
-          <span v-if="detail" class="status-chip" :class="statusClass(detail.object.status)">
+          <span
+            v-if="detail"
+            class="status-chip"
+            :class="statusClass(detail.object.status)"
+          >
             {{ statusLabel(detail.object.status) }}
           </span>
         </div>
@@ -33,6 +37,7 @@
       <div v-else-if="error" class="state state--error">{{ error }}</div>
 
       <div v-else-if="detail" class="detail-body">
+        <!-- ЛЕВАЯ КОЛОНКА -->
         <aside class="detail-aside">
           <div class="mini-map">
             <div class="map-placeholder-box">🗺</div>
@@ -74,7 +79,7 @@
             <p class="aside-desc">{{ detail.object.description }}</p>
           </section>
 
-          <!-- Заказчик: кнопка активации -->
+          <!-- Заказчик: активация -->
           <template v-if="role === 'CUSTOMER'">
             <button
               v-if="detail.object.status === 'PLANNED'"
@@ -83,52 +88,71 @@
             >
               Активировать объект
             </button>
-            <div v-if="detail.object.status === 'WAITING_INSPECTOR_CONFIRMATION'" class="info-notice">
+            <div
+              v-if="detail.object.status === 'WAITING_INSPECTOR_CONFIRMATION'"
+              class="info-notice"
+            >
               Ожидает решения инспектора
             </div>
-            <div v-if="detail.object.activation_reject_reason" class="reject-notice">
+            <div
+              v-if="detail.object.activation_reject_reason"
+              class="reject-notice"
+            >
               <span class="reject-label">Причина отклонения:</span>
               {{ detail.object.activation_reject_reason }}
             </div>
           </template>
 
-          <!-- Инспектор: approve/reject -->
-          <template v-if="role === 'INSPECTOR' && detail.object.status === 'WAITING_INSPECTOR_CONFIRMATION'">
+          <!-- Инспектор: approve / reject -->
+          <template
+            v-if="role === 'INSPECTOR' && detail.object.status === 'WAITING_INSPECTOR_CONFIRMATION'"
+          >
             <div class="inspector-actions">
               <h2 class="aside-title">Решение по активации</h2>
-              <button class="action-btn action-btn--primary" @click="approveActivation" :disabled="approveLoading">
+              <button
+                class="action-btn action-btn--primary"
+                @click="approveActivation"
+                :disabled="approveLoading"
+              >
                 {{ approveLoading ? 'Сохраняю...' : 'Подтвердить' }}
               </button>
-              <button class="action-btn action-btn--danger" @click="showRejectModal = true">
+              <button
+                class="action-btn action-btn--danger"
+                @click="showRejectModal = true"
+              >
                 Отклонить
               </button>
-              <div v-if="decisionError" class="state state--error">{{ decisionError }}</div>
+              <div v-if="decisionError" class="state state--error">
+                {{ decisionError }}
+              </div>
             </div>
           </template>
         </aside>
 
+        <!-- ПРАВАЯ КОЛОНКА -->
         <div class="detail-main">
-
           <!-- График работ -->
           <section class="card">
-  <div class="card-header"><h2>График работ</h2></div>
+            <div class="card-header">
+              <h2>График работ</h2>
+            </div>
 
-  <div v-if="!ganttTasks.length" class="gantt-placeholder">
-    Добавьте этапы с плановыми датами, чтобы увидеть график
-  </div>
+            <div v-if="!ganttTasks.length" class="gantt-placeholder">
+              Добавьте этапы с плановыми датами, чтобы увидеть график
+            </div>
 
-  <FrappeGantt
-    v-else
-    :tasks="ganttTasks"
-    view-mode="Week"
-  />
-</section>
+            <FrappeGantt
+              v-else
+              :tasks="ganttTasks"
+              :view-mode="ganttViewMode"
+              height="auto"
+            />
+          </section>
 
           <!-- Виды работ -->
           <section class="card">
             <div class="card-header">
               <h2>Виды работ</h2>
-              <!-- Кнопка только для заказчика -->
               <button
                 v-if="role === 'CUSTOMER'"
                 class="action-btn action-btn--small"
@@ -138,20 +162,35 @@
               </button>
             </div>
 
-            <!-- Форма добавления этапа (только заказчик) -->
-            <div v-if="role === 'CUSTOMER' && showWorkItemForm" class="delivery-form">
+            <!-- Форма добавления этапа -->
+            <div
+              v-if="role === 'CUSTOMER' && showWorkItemForm"
+              class="delivery-form"
+            >
               <div class="form-row">
                 <div class="form-field">
                   <label>Название *</label>
-                  <input v-model="workItemForm.name" type="text" placeholder="Земляные работы" />
+                  <input
+                    v-model="workItemForm.name"
+                    type="text"
+                    placeholder="Земляные работы"
+                  />
                 </div>
                 <div class="form-field">
                   <label>Единица измерения</label>
-                  <input v-model="workItemForm.unit" type="text" placeholder="м³, шт, м²" />
+                  <input
+                    v-model="workItemForm.unit"
+                    type="text"
+                    placeholder="м³, шт, м²"
+                  />
                 </div>
                 <div class="form-field">
                   <label>Плановый объём</label>
-                  <input v-model.number="workItemForm.plan_qty" type="number" min="0" />
+                  <input
+                    v-model.number="workItemForm.plan_qty"
+                    type="number"
+                    min="0"
+                  />
                 </div>
               </div>
               <div class="form-row">
@@ -164,15 +203,23 @@
                   <input v-model="workItemForm.planned_end_date" type="date" />
                 </div>
               </div>
-              <div v-if="workItemError" class="state state--error">{{ workItemError }}</div>
+              <div v-if="workItemError" class="state state--error">
+                {{ workItemError }}
+              </div>
               <div class="work-actions">
-                <button class="action-btn action-btn--primary" @click="submitWorkItem" :disabled="workItemLoading">
+                <button
+                  class="action-btn action-btn--primary"
+                  @click="submitWorkItem"
+                  :disabled="workItemLoading"
+                >
                   {{ workItemLoading ? 'Сохраняю...' : 'Добавить' }}
                 </button>
               </div>
             </div>
 
-            <div v-if="!(detail.work_items?.length)" class="state">Работы не добавлены</div>
+            <div v-if="!(detail.work_items?.length)" class="state">
+              Работы не добавлены
+            </div>
 
             <div v-else class="work-table-wrapper">
               <table class="work-table">
@@ -185,12 +232,20 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="item in (detail.work_items || [])" :key="item.id">
+                  <tr
+                    v-for="item in (detail.work_items || [])"
+                    :key="item.id"
+                  >
                     <td>{{ item.name }}</td>
                     <td class="td-unit">{{ item.unit }}</td>
                     <td class="td-plan">{{ item.plan_qty }}</td>
                     <td v-if="role === 'FOREMAN'" class="td-input">
-                      <input type="number" min="0" v-model.number="reportForm[item.id]" placeholder="0" />
+                      <input
+                        type="number"
+                        min="0"
+                        v-model.number="reportForm[item.id]"
+                        placeholder="0"
+                      />
                     </td>
                   </tr>
                 </tbody>
@@ -198,10 +253,18 @@
             </div>
 
             <template v-if="role === 'FOREMAN' && detail.work_items?.length">
-              <div v-if="submitError" class="state state--error">{{ submitError }}</div>
-              <div v-if="submitSuccess" class="state state--success">{{ submitSuccess }}</div>
+              <div v-if="submitError" class="state state--error">
+                {{ submitError }}
+              </div>
+              <div v-if="submitSuccess" class="state state--success">
+                {{ submitSuccess }}
+              </div>
               <div class="work-actions">
-                <button class="action-btn action-btn--primary" @click="submitReports" :disabled="submitting">
+                <button
+                  class="action-btn action-btn--primary"
+                  @click="submitReports"
+                  :disabled="submitting"
+                >
                   {{ submitting ? 'Сохраняю...' : 'Сохранить отчёт' }}
                 </button>
               </div>
@@ -221,37 +284,64 @@
               </button>
             </div>
 
-            <div v-if="role === 'FOREMAN' && showDeliveryForm" class="delivery-form">
+            <div
+              v-if="role === 'FOREMAN' && showDeliveryForm"
+              class="delivery-form"
+            >
               <div class="form-row">
                 <div class="form-field">
                   <label>Материал</label>
-                  <input v-model="deliveryForm.material" type="text" placeholder="Кирпич, м³" />
+                  <input
+                    v-model="deliveryForm.material"
+                    type="text"
+                    placeholder="Кирпич, м³"
+                  />
                 </div>
                 <div class="form-field">
                   <label>Количество</label>
-                  <input v-model.number="deliveryForm.qty" type="number" min="0" />
+                  <input
+                    v-model.number="deliveryForm.qty"
+                    type="number"
+                    min="0"
+                  />
                 </div>
                 <div class="form-field">
                   <label>Дата</label>
                   <input v-model="deliveryForm.date" type="date" />
                 </div>
               </div>
-              <div v-if="deliveryError" class="state state--error">{{ deliveryError }}</div>
+              <div v-if="deliveryError" class="state state--error">
+                {{ deliveryError }}
+              </div>
               <div class="work-actions">
-                <button class="action-btn action-btn--primary" @click="submitDelivery" :disabled="deliveryLoading">
+                <button
+                  class="action-btn action-btn--primary"
+                  @click="submitDelivery"
+                  :disabled="deliveryLoading"
+                >
                   {{ deliveryLoading ? 'Сохраняю...' : 'Добавить поставку' }}
                 </button>
               </div>
             </div>
 
-            <div v-if="!(detail.deliveries?.length) && !showDeliveryForm" class="state">
+            <div
+              v-if="!(detail.deliveries?.length) && !showDeliveryForm"
+              class="state"
+            >
               Поставок пока нет
             </div>
 
-            <div v-else-if="detail.deliveries?.length" class="work-table-wrapper">
+            <div
+              v-else-if="detail.deliveries?.length"
+              class="work-table-wrapper"
+            >
               <table class="work-table">
                 <thead>
-                  <tr><th>Дата</th><th>Материал</th><th>Количество</th></tr>
+                  <tr>
+                    <th>Дата</th>
+                    <th>Материал</th>
+                    <th>Количество</th>
+                  </tr>
                 </thead>
                 <tbody>
                   <tr v-for="d in (detail.deliveries || [])" :key="d.id">
@@ -280,7 +370,9 @@
                 <span class="doc-icon">📄</span>
                 <div class="doc-info">
                   <span class="doc-name">Акт ввода в эксплуатацию</span>
-                  <span class="doc-path">{{ detail.object.init_act_file_path }}</span>
+                  <span class="doc-path">
+                    {{ detail.object.init_act_file_path }}
+                  </span>
                 </div>
               </div>
               <div v-if="detail.object.init_checklist_json" class="doc-item">
@@ -289,23 +381,32 @@
                   <span class="doc-name">Чек-лист активации</span>
                   <details class="doc-details">
                     <summary>Показать содержимое</summary>
-                    <pre class="doc-pre">{{ fmtChecklist(detail.object.init_checklist_json) }}</pre>
+                    <pre class="doc-pre">
+{{ fmtChecklist(detail.object.init_checklist_json) }}
+                    </pre>
                   </details>
                 </div>
               </div>
             </div>
           </section>
-
         </div>
       </div>
 
       <!-- Модалка активации (заказчик) -->
-      <div v-if="showActivateModal" class="modal-overlay" @click.self="showActivateModal = false">
+      <div
+        v-if="showActivateModal"
+        class="modal-overlay"
+        @click.self="showActivateModal = false"
+      >
         <div class="modal-card">
           <h2>Активация объекта</h2>
           <div class="form-field">
             <label>Чек-лист открытия (текст / JSON)</label>
-            <textarea v-model="activateForm.checklist_json" rows="4" :disabled="activateLoading" />
+            <textarea
+              v-model="activateForm.checklist_json"
+              rows="4"
+              :disabled="activateLoading"
+            />
           </div>
           <div class="form-field">
             <label>Путь к файлу акта</label>
@@ -316,10 +417,18 @@
               :disabled="activateLoading"
             />
           </div>
-          <div v-if="activateError" class="state state--error">{{ activateError }}</div>
+          <div v-if="activateError" class="state state--error">
+            {{ activateError }}
+          </div>
           <div class="modal-actions">
-            <button class="action-btn" @click="showActivateModal = false">Отмена</button>
-            <button class="action-btn action-btn--primary" @click="submitActivate" :disabled="activateLoading">
+            <button class="action-btn" @click="showActivateModal = false">
+              Отмена
+            </button>
+            <button
+              class="action-btn action-btn--primary"
+              @click="submitActivate"
+              :disabled="activateLoading"
+            >
               {{ activateLoading ? 'Отправляю...' : 'Отправить на проверку' }}
             </button>
           </div>
@@ -327,17 +436,29 @@
       </div>
 
       <!-- Модалка отклонения (инспектор) -->
-      <div v-if="showRejectModal" class="modal-overlay" @click.self="showRejectModal = false">
+      <div
+        v-if="showRejectModal"
+        class="modal-overlay"
+        @click.self="showRejectModal = false"
+      >
         <div class="modal-card">
           <h2>Причина отклонения</h2>
           <div class="form-field">
             <label>Укажите причину</label>
             <textarea v-model="rejectReason" rows="3" />
           </div>
-          <div v-if="decisionError" class="state state--error">{{ decisionError }}</div>
+          <div v-if="decisionError" class="state state--error">
+            {{ decisionError }}
+          </div>
           <div class="modal-actions">
-            <button class="action-btn" @click="showRejectModal = false">Отмена</button>
-            <button class="action-btn action-btn--danger" @click="rejectActivation" :disabled="approveLoading">
+            <button class="action-btn" @click="showRejectModal = false">
+              Отмена
+            </button>
+            <button
+              class="action-btn action-btn--danger"
+              @click="rejectActivation"
+              :disabled="approveLoading"
+            >
               {{ approveLoading ? 'Сохраняю...' : 'Отклонить' }}
             </button>
           </div>
@@ -390,8 +511,8 @@ interface ObjectCore {
   init_act_file_path?: string
   init_checklist_json?: string
   activation_reject_reason?: string
-  customer?:  Person
-  foreman?:   Person
+  customer?: Person
+  foreman?: Person
   inspector?: Person
 }
 
@@ -420,31 +541,36 @@ interface Delivery {
 }
 
 interface DetailResponse {
-  object:     ObjectCore
+  object: ObjectCore
   work_items: WorkItem[]
   deliveries: Delivery[]
 }
 
+
 // ─── Состояние ───────────────────────────────────────────────────────────────
 
-const detail  = ref<DetailResponse | null>(null)
+const detail = ref<DetailResponse | null>(null)
 const loading = ref(true)
-const error   = ref<string | null>(null)
+const error = ref<string | null>(null)
 
-const reportForm    = ref<Record<number, number>>({})
-const submitting    = ref(false)
-const submitError   = ref<string | null>(null)
+const reportForm = ref<Record<number, number>>({})
+const submitting = ref(false)
+const submitError = ref<string | null>(null)
 const submitSuccess = ref<string | null>(null)
 
 const showDeliveryForm = ref(false)
-const deliveryLoading  = ref(false)
-const deliveryError    = ref<string | null>(null)
-const deliveryForm = ref({ material: '', qty: 0, date: new Date().toISOString().slice(0, 10) })
+const deliveryLoading = ref(false)
+const deliveryError = ref<string | null>(null)
+const deliveryForm = ref({
+  material: '',
+  qty: 0,
+  date: new Date().toISOString().slice(0, 10),
+})
 
-// ── Форма добавления этапа (заказчик) ────────────────────────────────────────
+// форма этапа (заказчик)
 const showWorkItemForm = ref(false)
-const workItemLoading  = ref(false)
-const workItemError    = ref<string | null>(null)
+const workItemLoading = ref(false)
+const workItemError = ref<string | null>(null)
 const workItemForm = ref({
   name: '',
   unit: '',
@@ -453,25 +579,31 @@ const workItemForm = ref({
   planned_end_date: '',
 })
 
+// активация
 const showActivateModal = ref(false)
-const activateLoading   = ref(false)
-const activateError     = ref<string | null>(null)
+const activateLoading = ref(false)
+const activateError = ref<string | null>(null)
 const activateForm = ref({ checklist_json: '', act_file_path: '' })
 
+// отклонение инспектором
 const showRejectModal = ref(false)
-const rejectReason    = ref('')
-const approveLoading  = ref(false)
-const decisionError   = ref<string | null>(null)
+const rejectReason = ref('')
+const approveLoading = ref(false)
+const decisionError = ref<string | null>(null)
 
-// ─── Загрузка ────────────────────────────────────────────────────────────────
+// ─── Загрузка ───────────────────────────────────────────────────────────────
 
 function endpointForRole() {
   const id = route.params.id
   switch (role.value) {
-    case 'CUSTOMER':  return `${API_BASE}/customer/objects/${id}`
-    case 'FOREMAN':   return `${API_BASE}/foreman/objects/${id}`
-    case 'INSPECTOR': return `${API_BASE}/inspector/objects/${id}`
-    default:          return ''
+    case 'CUSTOMER':
+      return `${API_BASE}/customer/objects/${id}`
+    case 'FOREMAN':
+      return `${API_BASE}/foreman/objects/${id}`
+    case 'INSPECTOR':
+      return `${API_BASE}/inspector/objects/${id}`
+    default:
+      return ''
   }
 }
 
@@ -481,13 +613,19 @@ async function fetchDetail() {
   try {
     const url = endpointForRole()
     if (!url) throw new Error('Неизвестная роль')
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${auth.token}` } })
-    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? 'Ошибка загрузки')
+
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${auth.token}` },
+    })
+    if (!res.ok)
+      throw new Error(
+        (await res.json().catch(() => ({}))).error ?? 'Ошибка загрузки',
+      )
 
     const data = await res.json()
     const obj = data.object ?? data
     detail.value = {
-      object:     obj,
+      object: obj,
       work_items: Array.isArray(data.work_items) ? data.work_items : [],
       deliveries: Array.isArray(data.deliveries) ? data.deliveries : [],
     }
@@ -509,20 +647,36 @@ async function submitReports() {
       date: new Date().toISOString().slice(0, 10),
     }))
 
-  if (!reports.length) { submitError.value = 'Заполните хотя бы одну строку'; return }
+  if (!reports.length) {
+    submitError.value = 'Заполните хотя бы одну строку'
+    return
+  }
 
-  submitting.value = true; submitError.value = null; submitSuccess.value = null
+  submitting.value = true
+  submitError.value = null
+  submitSuccess.value = null
   try {
-    const res = await fetch(`${API_BASE}/foreman/objects/${route.params.id}/work-reports`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
-      body: JSON.stringify({ reports }),
-    })
-    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? 'Ошибка')
+    const res = await fetch(
+      `${API_BASE}/foreman/objects/${route.params.id}/work-reports`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${auth.token}`,
+        },
+        body: JSON.stringify({ reports }),
+      },
+    )
+    if (!res.ok)
+      throw new Error(
+        (await res.json().catch(() => ({}))).error ?? 'Ошибка',
+      )
     reportForm.value = {}
     submitSuccess.value = 'Отчёт сохранён'
     await fetchDetail()
-    setTimeout(() => { submitSuccess.value = null }, 3000)
+    setTimeout(() => {
+      submitSuccess.value = null
+    }, 3000)
   } catch (e: any) {
     submitError.value = e.message
   } finally {
@@ -531,19 +685,39 @@ async function submitReports() {
 }
 
 async function submitDelivery() {
-  if (!deliveryForm.value.material.trim()) { deliveryError.value = 'Укажите материал'; return }
-  if (!deliveryForm.value.qty || deliveryForm.value.qty <= 0) { deliveryError.value = 'Укажите количество'; return }
+  if (!deliveryForm.value.material.trim()) {
+    deliveryError.value = 'Укажите материал'
+    return
+  }
+  if (!deliveryForm.value.qty || deliveryForm.value.qty <= 0) {
+    deliveryError.value = 'Укажите количество'
+    return
+  }
 
-  deliveryLoading.value = true; deliveryError.value = null
+  deliveryLoading.value = true
+  deliveryError.value = null
   try {
-    const res = await fetch(`${API_BASE}/foreman/objects/${route.params.id}/deliveries`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
-      body: JSON.stringify(deliveryForm.value),
-    })
-    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? 'Ошибка')
+    const res = await fetch(
+      `${API_BASE}/foreman/objects/${route.params.id}/deliveries`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${auth.token}`,
+        },
+        body: JSON.stringify(deliveryForm.value),
+      },
+    )
+    if (!res.ok)
+      throw new Error(
+        (await res.json().catch(() => ({}))).error ?? 'Ошибка',
+      )
     showDeliveryForm.value = false
-    deliveryForm.value = { material: '', qty: 0, date: new Date().toISOString().slice(0, 10) }
+    deliveryForm.value = {
+      material: '',
+      qty: 0,
+      date: new Date().toISOString().slice(0, 10),
+    }
     await fetchDetail()
   } catch (e: any) {
     deliveryError.value = e.message
@@ -552,7 +726,7 @@ async function submitDelivery() {
   }
 }
 
-// ─── Заказчик: добавление этапа ──────────────────────────────────────────────
+// ─── Заказчик: этапы ─────────────────────────────────────────────────────────
 
 async function submitWorkItem() {
   if (!workItemForm.value.name.trim()) {
@@ -564,29 +738,43 @@ async function submitWorkItem() {
   workItemError.value = null
   try {
     const body: Record<string, any> = {
-      name:     workItemForm.value.name,
-      unit:     workItemForm.value.unit,
+      name: workItemForm.value.name,
+      unit: workItemForm.value.unit,
       plan_qty: workItemForm.value.plan_qty,
     }
-    // Даты передаём только если заполнены — иначе бэк получит пустую строку
     if (workItemForm.value.planned_start_date)
-      body.planned_start_date = new Date(workItemForm.value.planned_start_date).toISOString()
+      body.planned_start_date = new Date(
+        workItemForm.value.planned_start_date,
+      ).toISOString()
     if (workItemForm.value.planned_end_date)
-      body.planned_end_date = new Date(workItemForm.value.planned_end_date).toISOString()
+      body.planned_end_date = new Date(
+        workItemForm.value.planned_end_date,
+      ).toISOString()
 
     const res = await fetch(
       `${API_BASE}/customer/objects/${route.params.id}/work-items`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${auth.token}`,
+        },
         body: JSON.stringify(body),
-      }
+      },
     )
-    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? 'Ошибка')
+    if (!res.ok)
+      throw new Error(
+        (await res.json().catch(() => ({}))).error ?? 'Ошибка',
+      )
 
-    // Сбрасываем форму и перезагружаем — Гантт и таблица обновятся сами
     showWorkItemForm.value = false
-    workItemForm.value = { name: '', unit: '', plan_qty: 0, planned_start_date: '', planned_end_date: '' }
+    workItemForm.value = {
+      name: '',
+      unit: '',
+      plan_qty: 0,
+      planned_start_date: '',
+      planned_end_date: '',
+    }
     await fetchDetail()
   } catch (e: any) {
     workItemError.value = e.message
@@ -598,19 +786,32 @@ async function submitWorkItem() {
 // ─── Заказчик: активация ─────────────────────────────────────────────────────
 
 async function submitActivate() {
-  if (!activateForm.value.checklist_json.trim()) { activateError.value = 'Заполните чек-лист'; return }
+  if (!activateForm.value.checklist_json.trim()) {
+    activateError.value = 'Заполните чек-лист'
+    return
+  }
 
-  activateLoading.value = true; activateError.value = null
+  activateLoading.value = true
+  activateError.value = null
   try {
-    const res = await fetch(`${API_BASE}/customer/objects/${route.params.id}/activate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
-      body: JSON.stringify({
-        checklist_json: activateForm.value.checklist_json,
-        act_file_path: activateForm.value.act_file_path || undefined,
-      }),
-    })
-    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? 'Ошибка')
+    const res = await fetch(
+      `${API_BASE}/customer/objects/${route.params.id}/activate`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${auth.token}`,
+        },
+        body: JSON.stringify({
+          checklist_json: activateForm.value.checklist_json,
+          act_file_path: activateForm.value.act_file_path || undefined,
+        }),
+      },
+    )
+    if (!res.ok)
+      throw new Error(
+        (await res.json().catch(() => ({}))).error ?? 'Ошибка',
+      )
     showActivateModal.value = false
     await fetchDetail()
   } catch (e: any) {
@@ -622,15 +823,28 @@ async function submitActivate() {
 
 // ─── Инспектор ───────────────────────────────────────────────────────────────
 
-async function sendDecision(decision: 'APPROVE' | 'REJECT', rejection_reason = '') {
-  approveLoading.value = true; decisionError.value = null
+async function sendDecision(
+  decision: 'APPROVE' | 'REJECT',
+  rejection_reason = '',
+) {
+  approveLoading.value = true
+  decisionError.value = null
   try {
-    const res = await fetch(`${API_BASE}/inspector/objects/${route.params.id}/activation-decision`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
-      body: JSON.stringify({ decision, rejection_reason }),
-    })
-    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? 'Ошибка')
+    const res = await fetch(
+      `${API_BASE}/inspector/objects/${route.params.id}/activation-decision`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${auth.token}`,
+        },
+        body: JSON.stringify({ decision, rejection_reason }),
+      },
+    )
+    if (!res.ok)
+      throw new Error(
+        (await res.json().catch(() => ({}))).error ?? 'Ошибка',
+      )
     showRejectModal.value = false
     rejectReason.value = ''
     await fetchDetail()
@@ -641,9 +855,15 @@ async function sendDecision(decision: 'APPROVE' | 'REJECT', rejection_reason = '
   }
 }
 
-async function approveActivation() { await sendDecision('APPROVE') }
+async function approveActivation() {
+  await sendDecision('APPROVE')
+}
+
 async function rejectActivation() {
-  if (!rejectReason.value.trim()) { decisionError.value = 'Укажите причину'; return }
+  if (!rejectReason.value.trim()) {
+    decisionError.value = 'Укажите причину'
+    return
+  }
   await sendDecision('REJECT', rejectReason.value.trim())
 }
 
@@ -655,8 +875,11 @@ function fmtDate(v?: string | null) {
 }
 
 function fmtChecklist(json: string) {
-  try { return JSON.stringify(JSON.parse(json), null, 2) }
-  catch { return json }
+  try {
+    return JSON.stringify(JSON.parse(json), null, 2)
+  } catch {
+    return json
+  }
 }
 
 function statusLabel(s: ObjStatus) {
@@ -671,18 +894,24 @@ function statusLabel(s: ObjStatus) {
 
 function statusClass(s: ObjStatus) {
   return {
-    'status-chip--planned':  s === 'PLANNED',
-    'status-chip--waiting':  s === 'WAITING_INSPECTOR_CONFIRMATION',
-    'status-chip--active':   s === 'ACTIVE',
+    'status-chip--planned': s === 'PLANNED',
+    'status-chip--waiting': s === 'WAITING_INSPECTOR_CONFIRMATION',
+    'status-chip--active': s === 'ACTIVE',
     'status-chip--finished': s === 'FINISHED',
   }
 }
 
 function goBack() {
   switch (role.value) {
-    case 'CUSTOMER':  router.push({ name: 'customer-objects' }); break
-    case 'FOREMAN':   router.push({ name: 'foreman-objects' }); break
-    case 'INSPECTOR': router.push({ name: 'inspector-objects' }); break
+    case 'CUSTOMER':
+      router.push({ name: 'customer-objects' })
+      break
+    case 'FOREMAN':
+      router.push({ name: 'foreman-objects' })
+      break
+    case 'INSPECTOR':
+      router.push({ name: 'inspector-objects' })
+      break
   }
 }
 
@@ -695,23 +924,78 @@ onMounted(fetchDetail)
 
 // ─── Гантт ───────────────────────────────────────────────────────────────────
 
-// Frappe Gantt ожидает даты в формате 'YYYY-MM-DD'
+type GanttTask = {
+  id: string
+  name: string
+  start: string
+  end: string
+  progress: number
+}
+
 function toYMD(dateStr?: string | null): string {
   if (!dateStr) return ''
   return new Date(dateStr).toISOString().slice(0, 10)
 }
 
-// Преобразуем наши WorkItem в формат Frappe Gantt
-const ganttTasks = computed(() =>
+function getActualDateRange(item: WorkItem) {
+  const start = item.actual_start_date ?? item.planned_start_date ?? null
+  let end = item.actual_end_date ?? item.planned_end_date ?? null
+
+  if (
+    !item.actual_end_date &&
+    item.planned_end_date &&
+    (item.status === 'IN_PROGRESS' || item.status === 'DELAYED')
+  ) {
+    const today = new Date()
+    const plannedEnd = new Date(item.planned_end_date)
+
+    if (plannedEnd < today) {
+      end = today.toISOString()
+    }
+  }
+
+  return { start, end }
+}
+
+const ganttViewMode = computed<'Day' | 'Week' | 'Month'>(() => {
+  const items = detail.value?.work_items ?? []
+  if (!items.length) return 'Week'
+
+  const ranges = items
+    .map(getActualDateRange)
+    .filter(
+      (r): r is { start: string; end: string } => Boolean(r.start && r.end),
+    )
+
+  if (!ranges.length) return 'Week'
+
+  const starts = ranges.map(r => new Date(r.start).getTime())
+  const ends = ranges.map(r => new Date(r.end).getTime())
+
+  const minStart = Math.min(...starts)
+  const maxEnd = Math.max(...ends)
+  const diffDays = Math.ceil((maxEnd - minStart) / (1000 * 60 * 60 * 24))
+
+  if (diffDays <= 31) return 'Day'
+  if (diffDays <= 90) return 'Week'
+  return 'Month'
+})
+
+const ganttTasks = computed<GanttTask[]>(() =>
   (detail.value?.work_items ?? [])
-    .filter(i => i.planned_start_date && i.planned_end_date)
-    .map(i => ({
-      id:       String(i.id),
-      name:     i.name,
-      start:    toYMD(i.planned_start_date),
-      end:      toYMD(i.planned_end_date),
-      progress: Math.round(i.progress ?? 0),
-    }))
+    .map((i): GanttTask | null => {
+      const { start, end } = getActualDateRange(i)
+      if (!start || !end) return null
+
+      return {
+        id: String(i.id),
+        name: i.name,
+        start: toYMD(start),
+        end: toYMD(end),
+        progress: Math.round(i.progress ?? 0),
+      }
+    })
+    .filter((task): task is GanttTask => task !== null)
 )
 </script>
 

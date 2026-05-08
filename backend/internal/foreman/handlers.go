@@ -292,7 +292,7 @@ func (h *Handler) CreateCVDelivery(c *gin.Context) {
 	}
 
 	doc := models.MaterialDocument{
-		DeliveryID:       delivery.ID,
+		DeliveryID:       &delivery.ID,
 		DocumentType:     models.MaterialDocumentTypeTTN,
 		StoragePath:      originalPath,
 		OriginalFileName: originalFilename,
@@ -381,6 +381,35 @@ func (h *Handler) UploadFile(c *gin.Context) {
 	if err := c.SaveUploadedFile(file, filePath); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "upload failed"})
 		return
+	}
+
+	ctx := c.Request.Context()
+	cvResult, err := h.cvProcessor.ProcessFile(ctx, filePath, filename)
+	if err != nil {
+		fmt.Printf("CV processing failed for file %s: %v\n", filename, err)
+	} else {
+		// Определяем тип документа
+		docType := models.MaterialDocumentTypeOther
+		if cvResult.Extraction.DocumentType != "" {
+			switch cvResult.Extraction.DocumentType {
+			case "TTN":
+				docType = models.MaterialDocumentTypeTTN
+			}
+		}
+
+		doc := models.MaterialDocument{
+			DeliveryID:       nil,
+			DocumentType:     docType,
+			StoragePath:      filePath,
+			OriginalFileName: filename,
+			MimeType:         file.Header.Get("Content-Type"),
+			CVStatus:         models.CVProcessingStatusDone,
+			CVPayloadJSON:    string(cvResult.RawJSON),
+		}
+
+		if err := h.db.Create(&doc).Error; err != nil {
+			fmt.Printf("Failed to save document record: %v\n", err)
+		}
 	}
 
 	c.JSON(http.StatusCreated, gin.H{

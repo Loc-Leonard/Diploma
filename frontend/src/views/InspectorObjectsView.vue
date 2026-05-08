@@ -222,7 +222,8 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useInspectorNotificationsStore } from '@/stores/inspectorNotifications'
 
-const API_BASE = import.meta.env.VITE_API_URL as string
+const notifications = useInspectorNotificationsStore()
+const API_BASE = 'http://localhost:8080'
 const auth = useAuthStore()
 const showMap = ref(false)
 const router = useRouter()

@@ -12,7 +12,6 @@
           <button class="nav-item" disabled>Справочники</button>
         </nav>
       </div>
-
       <div class="sidebar-bottom">
         <div class="role-badge">
           <span class="role-dot role-dot--foreman"></span>
@@ -159,7 +158,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
-const API_BASE = import.meta.env.VITE_API_URL as string
+const API_BASE = 'http://localhost:8080'
 
 const route = useRoute()
 const router = useRouter()
@@ -200,7 +199,6 @@ type WorkItem = {
 
 const object = ref<ObjectCore | null>(null)
 const workItems = ref<WorkItem[]>([])
-const deliveries = ref<MaterialDelivery[]>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
 
@@ -208,10 +206,6 @@ const submitting = ref(false)
 const submitError = ref<string | null>(null)
 const submitSuccess = ref<string | null>(null)
 const reportForm = ref<Record<number, number>>({})
-const deliveryForm = ref({
-  work_item_id: '',
-  date: new Date().toISOString().slice(0, 10),
-})
 
 const showDeliveryForm = ref(false)
 const deliveryLoading = ref(false)
@@ -225,7 +219,6 @@ const deliveryForm = ref({
 async function loadObject() {
   loading.value = true
   error.value = null
-
   try {
     const res = await fetch(
       `${API_BASE}/foreman/objects/${route.params.id}`,
@@ -242,9 +235,6 @@ async function loadObject() {
   }
 }
 
-/* -------------------------------------------------------------
-   Остальные функции (не меняются)
-------------------------------------------------------------- */
 async function submitReports() {
   const reports = Object.entries(reportForm.value)
     .filter(([, qty]) => qty > 0)
@@ -263,11 +253,15 @@ async function submitReports() {
   submitError.value = null
   submitSuccess.value = null
   try {
-    const res = await fetch(`${API_BASE}/foreman/objects/${route.params.id}/work-reports`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${auth.token}`,
+    const res = await fetch(
+      `${API_BASE}/foreman/objects/${route.params.id}/work-reports`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${auth.token}`,
+        },
+        body: JSON.stringify({ reports }),
       },
     )
     if (!res.ok) throw new Error('Ошибка отправки отчёта')
@@ -350,13 +344,12 @@ function statusClass(status: string) {
 function goBack() {
   router.push({ name: 'foreman-objects' })
 }
+
 function logout() {
   auth.clearAuth()
   router.push({ name: 'login' })
 }
-function formatDate(value: string) {
-  return new Date(value).toLocaleDateString('ru-RU')
-}
+
 onMounted(loadObject)
 </script>
 

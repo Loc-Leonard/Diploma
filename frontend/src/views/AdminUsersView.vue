@@ -168,7 +168,7 @@ import { useRouter } from 'vue-router'
 const auth = useAuthStore()
 const router = useRouter()
 
-const API_BASE = import.meta.env.VITE_API_URL as string
+const API_BASE = 'http://localhost:8080'
 
 type UserItem = {
   id: number
