@@ -18,6 +18,11 @@
 - `GET /customer/inspectors-list` - список доступных инспекторов.
 - `POST /customer/objects` - создает новый объект.
 - `POST /customer/objects/:id/activate` - отправляет данные об активации объекта на проверку инспектору.
+- `GET /customer/objects/:id` - информация об объекте
+- `GET /customer/objects/:id/work-items` - list of work items.
+- `POST /customer/objects/:id/work-items` - create new work item.
+- `PUT /customer/objects/:id/work-items/:wid` - update work item.
+- `DELETE /customer/objects/:id/work-items/:wid` - delete work item.
 
 ### Foreman
 - `GET /foreman/objects` - список объектов, назначенных текущему подрядчику.
