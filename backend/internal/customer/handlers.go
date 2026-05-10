@@ -1,14 +1,23 @@
 package customer
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"log"
 	"net/http"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
 	"github.com/Loc-Leonard/Diploma/backend/internal/auth"
+	"github.com/Loc-Leonard/Diploma/backend/internal/cv"
 	"github.com/Loc-Leonard/Diploma/backend/internal/models"
 	"github.com/Loc-Leonard/Diploma/backend/internal/objectcore"
 )
@@ -29,11 +38,17 @@ const (
 )
 
 type Handler struct {
-	db *gorm.DB
+	db          *gorm.DB
+	cvProcessor cv.HTTPProcessor
+	storageRoot string
 }
 
-func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
-	h := &Handler{db: db}
+func RegisterRoutes(r *gin.Engine, db *gorm.DB, cvProcessor cv.HTTPProcessor, storageRoot string) {
+	h := &Handler{
+		db:          db,
+		cvProcessor: cvProcessor,
+		storageRoot: storageRoot,
+	}
 
 	gr := r.Group("/customer")
 	gr.Use(auth.AuthMiddleware(), auth.MustChangePasswordMiddleware(db), auth.CustomerOnly())
@@ -46,76 +61,19 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 
 		gr.POST("/objects", h.CreateObject)
 		gr.POST("/objects/:id/activate", h.ActivateObject)
-
 		gr.GET("/objects/:id", h.GetObject)
 
+		// Этдпоинты для работы с просмотром видов работ
 		gr.GET("/objects/:id/work-items", h.ListWorkItems)
 		gr.POST("/objects/:id/work-items", h.CreateWorkItem)
 		gr.PUT("/objects/:id/work-items/:wid", h.UpdateWorkItem)
 		gr.DELETE("/objects/:id/work-items/:wid", h.DeleteWorkItem)
+
+		// Эндпоинты для работы с документами (CV)
+		gr.GET("/objects/:id/documents", h.ListDocuments)
+		gr.POST("/objects/:id/documents/upload", h.UploadDocument)
+		gr.DELETE("/objects/:id/documents/:docId", h.DeleteDocument)
 	}
-}
-
-// DashboardObjectDTO - DTO объекта для дашборда
-type DashboardObjectDTO struct {
-	ID       uint                `json:"id"`
-	Name     string              `json:"name"`
-	City     string              `json:"city"`
-	Address  string              `json:"address"`
-	Status   models.ObjectStatus `json:"status"`
-	Progress float64             `json:"progress"`
-	Foreman  *struct {
-		ID       uint   `json:"id"`
-		FullName string `json:"full_name"`
-	} `json:"foreman,omitempty"`
-	PlannedStartDate       *time.Time `json:"planned_start_date"`
-	PlannedEndDate         *time.Time `json:"planned_end_date"`
-	Lat                    float64    `json:"lat"`
-	Lng                    float64    `json:"lng"`
-	ActivationRejectReason string     `json:"activation_reject_reason"`
-}
-
-// DashboardForemanDTO - DTO прораба для дашборда
-type DashboardForemanDTO struct {
-	ID            uint   `json:"id"`
-	FullName      string `json:"full_name"`
-	City          string `json:"city"`
-	CurrentObject *struct {
-		ID   uint   `json:"id"`
-		Name string `json:"name"`
-	} `json:"current_object,omitempty"`
-}
-
-// CreateObjectRequest - DTO для создания объекта
-type CreateObjectRequest struct {
-	Name             string     `json:"name" binding:"required"`
-	Address          string     `json:"address" binding:"required"`
-	City             string     `json:"city" binding:"required"`
-	Description      string     `json:"description"`
-	Lat              float64    `json:"lat"`
-	Lng              float64    `json:"lng"`
-	PlannedStartDate *time.Time `json:"planned_start_date"`
-	PlannedEndDate   *time.Time `json:"planned_end_date"`
-	ForemanUserID    uint       `json:"foreman_user_id" binding:"required"`
-	InspectorUserID  uint       `json:"inspector_user_id" binding:"required"`
-}
-
-// ActivateObjectRequest - DTO для активации объекта
-type ActivateObjectRequest struct {
-	ChecklistJSON string  `json:"checklist_json" binding:"required"`
-	ActFilePath   *string `json:"act_file_path"`
-}
-
-// WorkItemInput - DTO для работы с задачами
-type WorkItemInput struct {
-	Name             string     `json:"name" binding:"required"`
-	Description      string     `json:"description"`
-	Unit             string     `json:"unit"`
-	PlanQty          float64    `json:"plan_qty"`
-	PlannedStartDate *time.Time `json:"planned_start_date"`
-	PlannedEndDate   *time.Time `json:"planned_end_date"`
-	SortOrder        int        `json:"sort_order"`
-	DependsOnID      *uint      `json:"depends_on_id"`
 }
 
 func (h *Handler) ForemenList(c *gin.Context) {
@@ -507,4 +465,307 @@ func (h *Handler) DeleteWorkItem(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"status": "work item deleted"})
+}
+
+// GET /customer/objects/:id/documents
+func (h *Handler) ListDocuments(c *gin.Context) {
+	userID := auth.UserIDFromContext(c)
+	objectID := c.Param("id")
+
+	var obj models.Object
+	if err := h.db.Where("id = ? AND customer_control_user_id = ?", objectID, userID).
+		First(&obj).Error; err != nil {
+		c.JSON(http.StatusNotFound, models.ErrorResponse{Error: "object not found"})
+		return
+	}
+
+	// Получаем документы, связанные с объектом
+	var documents []models.MaterialDocument
+	if err := h.db.
+		Joins("LEFT JOIN material_deliveries ON material_deliveries.id = material_documents.delivery_id").
+		Where("material_deliveries.object_id = ? OR material_documents.storage_path LIKE ?", obj.ID, "%/"+objectID+"/%").
+		Order("material_documents.created_at DESC").
+		Find(&documents).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{Error: "db error"})
+		return
+	}
+
+	// Загружаем информацию о пользователях
+	userIDs := make([]uint, 0)
+	for _, doc := range documents {
+		if doc.UploadedBy != nil {
+			userIDs = append(userIDs, *doc.UploadedBy)
+		}
+		if doc.DeliveryID != nil {
+			var delivery models.MaterialDelivery
+			if err := h.db.First(&delivery, *doc.DeliveryID).Error; err == nil {
+				if delivery.ForemanID != 0 {
+					userIDs = append(userIDs, delivery.ForemanID)
+				}
+			}
+		}
+	}
+
+	usersMap := make(map[uint]string)
+	if len(userIDs) > 0 {
+		var users []models.User
+		if err := h.db.Where("id IN ?", userIDs).Find(&users).Error; err == nil {
+			for _, u := range users {
+				usersMap[u.ID] = u.FullName
+			}
+		}
+	}
+
+	resp := make([]DocumentDTO, 0, len(documents))
+	for _, doc := range documents {
+		uploadedBy := "Unknown"
+
+		// Сначала пробуем получить из UploadedBy
+		if doc.UploadedBy != nil {
+			if name, ok := usersMap[*doc.UploadedBy]; ok {
+				uploadedBy = name
+			}
+		}
+
+		if uploadedBy == "Unknown" && doc.DeliveryID != nil {
+			var delivery models.MaterialDelivery
+			if err := h.db.First(&delivery, *doc.DeliveryID).Error; err == nil {
+				if delivery.ForemanID != 0 {
+					if name, ok := usersMap[delivery.ForemanID]; ok {
+						uploadedBy = name
+					}
+				}
+			}
+		}
+
+		// Извлекаем CV confidence из payload
+		cvConfidence := doc.CVConfidence
+		if cvConfidence == 0 && doc.CVPayloadJSON != "" {
+			var cvData map[string]interface{}
+			if err := json.Unmarshal([]byte(doc.CVPayloadJSON), &cvData); err == nil {
+				if extraction, ok := cvData["extraction"].(map[string]interface{}); ok {
+					if conf, ok := extraction["confidence"].(float64); ok {
+						cvConfidence = conf
+					}
+				}
+			}
+		}
+
+		resp = append(resp, DocumentDTO{
+			ID:               doc.ID,
+			DocumentType:     string(doc.DocumentType),
+			OriginalFileName: doc.OriginalFileName,
+			MimeType:         doc.MimeType,
+			CVStatus:         string(doc.CVStatus),
+			CVConfidence:     cvConfidence,
+			CreatedAt:        doc.CreatedAt,
+			UploadedBy:       uploadedBy,
+			DownloadURL:      fmt.Sprintf("/api/storage/download/%d", doc.ID),
+		})
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
+// POST /customer/objects/:id/documents/upload
+func (h *Handler) UploadDocument(c *gin.Context) {
+	userID := auth.UserIDFromContext(c)
+	objectID := c.Param("id")
+
+	var obj models.Object
+	if err := h.db.Where("id = ? AND customer_control_user_id = ?", objectID, userID).
+		First(&obj).Error; err != nil {
+		c.JSON(http.StatusNotFound, models.ErrorResponse{Error: "object not found"})
+		return
+	}
+
+	file, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "no file provided"})
+		return
+	}
+
+	// Проверка размера файла (макс 10MB)
+	const maxFileSize = 10 * 1024 * 1024
+	if file.Size > maxFileSize {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "file too large (max 10MB)"})
+		return
+	}
+
+	// Проверка типа файла
+	allowedMimeTypes := []string{
+		"image/jpeg", "image/png", "image/jpg", "image/gif",
+		"application/pdf",
+		"application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+		"application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+	}
+
+	fileHeader, err := file.Open()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "cannot read file"})
+		return
+	}
+	defer fileHeader.Close()
+
+	buffer := make([]byte, 512)
+	_, err = fileHeader.Read(buffer)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "cannot read file"})
+		return
+	}
+	fileType := http.DetectContentType(buffer)
+
+	if !slices.Contains(allowedMimeTypes, fileType) {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "file type not allowed"})
+		return
+	}
+
+	// Определяем тип документа из формы или используем дефолт
+	docTypeStr := c.PostForm("document_type")
+	if docTypeStr == "" {
+		docTypeStr = "OTHER"
+	}
+
+	// Создаем директорию для объекта
+	objectDir := filepath.Join(h.storageRoot, "customer", objectID, "documents")
+	if err := os.MkdirAll(objectDir, 0755); err != nil {
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{Error: "cannot create directory"})
+		return
+	}
+
+	// Генерируем уникальное имя файла
+	timestamp := time.Now().Format("20060102_150405")
+	originalFilename := filepath.Base(file.Filename)
+	// Очищаем имя файла от специальных символов
+	cleanFilename := strings.ReplaceAll(originalFilename, " ", "_")
+	filename := timestamp + "_" + cleanFilename
+	filePath := filepath.Join(objectDir, filename)
+
+	// Сохраняем файл
+	if err := c.SaveUploadedFile(file, filePath); err != nil {
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{Error: "cannot save file"})
+		return
+	}
+
+	// Создаем запись о документе СНАЧАЛА (чтобы получить ID для горотины)
+	doc := models.MaterialDocument{
+		DeliveryID:       nil,
+		UploadedBy:       &userID, // 👈 Сохраняем кто загрузил
+		DocumentType:     models.MaterialDocumentType(docTypeStr),
+		StoragePath:      filePath,
+		OriginalFileName: originalFilename,
+		MimeType:         fileType,
+		CVStatus:         models.CVProcessingStatusPending,
+		CVPayloadJSON:    "",
+	}
+
+	if err := h.db.Create(&doc).Error; err != nil {
+		os.Remove(filePath) // Откат - удаляем файл при ошибке БД
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{Error: "db error: document"})
+		return
+	}
+
+	// 👈 Теперь сохраняем ID ДО запуска горотины
+	documentID := doc.ID
+
+	// Запускаем CV обработку в горутине (асинхронно)
+	go func(docID uint, fPath string, fName string) {
+		ctx := context.Background()
+		cvResult, cvErr := h.cvProcessor.ProcessFile(ctx, fPath, fName)
+
+		updateStatus := models.CVProcessingStatusDone
+		updatePayload := ""
+		updateConfidence := 0.0
+		updateDocType := ""
+
+		if cvErr != nil {
+			log.Printf("CV processing failed for file %s: %v", fName, cvErr)
+			updateStatus = models.CVProcessingStatusFailed
+		} else {
+			updatePayload = string(cvResult.RawJSON)
+			updateConfidence = cvResult.Extraction.Confidence
+
+			// Обновляем тип документа на основе CV
+			if cvResult.Extraction.DocumentType != "" {
+				switch cvResult.Extraction.DocumentType {
+				case "TTN":
+					updateDocType = "TTN"
+				case "QUALITY_PASSPORT":
+					updateDocType = "QUALITY_PASSPORT"
+				case "PHOTO":
+					updateDocType = "PHOTO"
+				}
+			}
+		}
+
+		// Обновляем запись в БД
+		updates := map[string]interface{}{
+			"cv_status":       updateStatus,
+			"cv_payload_json": updatePayload,
+			"cv_confidence":   updateConfidence,
+		}
+		if updateDocType != "" {
+			updates["document_type"] = updateDocType
+		}
+
+		if err := h.db.Model(&models.MaterialDocument{}).Where("id = ?", docID).Updates(updates).Error; err != nil {
+			log.Printf("Failed to update CV status for document %d: %v", docID, err)
+		}
+	}(documentID, filePath, originalFilename)
+
+	// Отвечаем клиенту сразу
+	c.JSON(http.StatusCreated, DocumentUploadResponse{
+		Status:     "uploaded",
+		DocumentID: doc.ID,
+		FileName:   originalFilename,
+		FilePath:   filePath,
+		CVStatus:   string(models.CVProcessingStatusPending),
+	})
+}
+
+// DELETE /customer/objects/:id/documents/:docId
+func (h *Handler) DeleteDocument(c *gin.Context) {
+	userID := auth.UserIDFromContext(c)
+	objectID := c.Param("id")
+	docID := c.Param("docId")
+
+	var obj models.Object
+	if err := h.db.Where("id = ? AND customer_control_user_id = ?", objectID, userID).
+		First(&obj).Error; err != nil {
+		c.JSON(http.StatusNotFound, models.ErrorResponse{Error: "object not found"})
+		return
+	}
+
+	var doc models.MaterialDocument
+	if err := h.db.First(&doc, docID).Error; err != nil {
+		c.JSON(http.StatusNotFound, models.ErrorResponse{Error: "document not found"})
+		return
+	}
+
+	// Проверяем, что документ принадлежит этому объекту
+	expectedPath := filepath.Join(h.storageRoot, "customer", objectID, "documents")
+	if !strings.HasPrefix(doc.StoragePath, expectedPath) {
+		c.JSON(http.StatusForbidden, models.ErrorResponse{Error: "document does not belong to this object"})
+		return
+	}
+
+	// Проверяем, не связан ли документ с delivery
+	if doc.DeliveryID != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "cannot delete document linked to delivery"})
+		return
+	}
+
+	// Удаляем файл с диска
+	if err := os.Remove(doc.StoragePath); err != nil {
+		log.Printf("Failed to delete file %s: %v", doc.StoragePath, err)
+		// Продолжаем удаление записи из БД
+	}
+
+	// Удаляем запись из БД
+	if err := h.db.Delete(&doc).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{Error: "db error"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "deleted"})
 }
