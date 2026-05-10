@@ -37,7 +37,6 @@
       <div v-else-if="error" class="state state--error">{{ error }}</div>
 
       <div v-else-if="detail" class="detail-body">
-        <!-- ЛЕВАЯ КОЛОНКА -->
         <aside class="detail-aside">
           <div class="mini-map">
             <div class="map-placeholder-box">🗺</div>
@@ -79,7 +78,6 @@
             <p class="aside-desc">{{ detail.object.description }}</p>
           </section>
 
-          <!-- Заказчик: активация -->
           <template v-if="role === 'CUSTOMER'">
             <button
               v-if="detail.object.status === 'PLANNED'"
@@ -103,7 +101,6 @@
             </div>
           </template>
 
-          <!-- Инспектор: approve / reject -->
           <template
             v-if="role === 'INSPECTOR' && detail.object.status === 'WAITING_INSPECTOR_CONFIRMATION'"
           >
@@ -129,9 +126,7 @@
           </template>
         </aside>
 
-        <!-- ПРАВАЯ КОЛОНКА -->
         <div class="detail-main">
-          <!-- График работ -->
           <section class="card">
             <div class="card-header">
               <h2>График работ</h2>
@@ -149,7 +144,6 @@
             />
           </section>
 
-          <!-- Виды работ -->
           <section class="card">
             <div class="card-header">
               <h2>Виды работ</h2>
@@ -162,7 +156,6 @@
               </button>
             </div>
 
-            <!-- Форма добавления этапа -->
             <div
               v-if="role === 'CUSTOMER' && showWorkItemForm"
               class="delivery-form"
@@ -228,6 +221,7 @@
                     <th>Наименование</th>
                     <th>Ед.</th>
                     <th>План</th>
+                    <th v-if="role === 'CUSTOMER'">Действия</th>
                     <th v-if="role === 'FOREMAN'">Факт (сегодня)</th>
                   </tr>
                 </thead>
@@ -239,6 +233,22 @@
                     <td>{{ item.name }}</td>
                     <td class="td-unit">{{ item.unit }}</td>
                     <td class="td-plan">{{ item.plan_qty }}</td>
+                    <td v-if="role === 'CUSTOMER'" class="td-actions">
+                      <button
+                        class="icon-btn icon-btn--edit"
+                        @click="openEditWorkItem(item)"
+                        title="Редактировать"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        class="icon-btn icon-btn--delete"
+                        @click="deleteWorkItem(item.id)"
+                        title="Удалить"
+                      >
+                        🗑️
+                      </button>
+                    </td>
                     <td v-if="role === 'FOREMAN'" class="td-input">
                       <input
                         type="number"
@@ -271,7 +281,6 @@
             </template>
           </section>
 
-          <!-- Поставки -->
           <section class="card">
             <div class="card-header">
               <h2>Поставки материалов</h2>
@@ -354,7 +363,6 @@
             </div>
           </section>
 
-          <!-- Документы -->
           <section class="card">
             <div class="card-header"><h2>Документы</h2></div>
 
@@ -392,7 +400,6 @@
         </div>
       </div>
 
-      <!-- Модалка активации (заказчик) -->
       <div
         v-if="showActivateModal"
         class="modal-overlay"
@@ -430,6 +437,76 @@
               :disabled="activateLoading"
             >
               {{ activateLoading ? 'Отправляю...' : 'Отправить на проверку' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Модалка редактирования этапа (заказчик) -->
+      <div
+        v-if="showEditWorkItemModal"
+        class="modal-overlay"
+        @click.self="closeEditWorkItem"
+      >
+        <div class="modal-card">
+          <h2>Редактирование этапа</h2>
+          <div class="form-field">
+            <label>Название *</label>
+            <input
+              v-model="editWorkItemForm.name"
+              type="text"
+              placeholder="Земляные работы"
+            />
+          </div>
+          <div class="form-field">
+            <label>Описание</label>
+            <textarea
+              v-model="editWorkItemForm.description"
+              rows="3"
+              placeholder="Описание этапа"
+            />
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Единица измерения</label>
+              <input
+                v-model="editWorkItemForm.unit"
+                type="text"
+                placeholder="м³, шт, м²"
+              />
+            </div>
+            <div class="form-field">
+              <label>Плановый объём</label>
+              <input
+                v-model.number="editWorkItemForm.plan_qty"
+                type="number"
+                min="0"
+              />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Дата начала</label>
+              <input v-model="editWorkItemForm.planned_start_date" type="date" />
+            </div>
+            <div class="form-field">
+              <label>Дата окончания</label>
+              <input v-model="editWorkItemForm.planned_end_date" type="date" />
+            </div>
+          </div>
+          <div v-if="editWorkItemError" class="state state--error">
+            {{ editWorkItemError }}
+          </div>
+          <div class="modal-actions">
+            <button class="action-btn" @click="closeEditWorkItem">
+              Отмена
+            </button>
+            <button
+              class="action-btn action-btn--primary"
+              @click="submitEditWorkItem"
+              :disabled="editWorkItemLoading"
+            >
+              {{ editWorkItemLoading ? 'Сохраняю...' : 'Сохранить' }}
             </button>
           </div>
         </div>
@@ -546,7 +623,6 @@ interface DetailResponse {
   deliveries: Delivery[]
 }
 
-
 // ─── Состояние ───────────────────────────────────────────────────────────────
 
 const detail = ref<DetailResponse | null>(null)
@@ -577,6 +653,22 @@ const workItemForm = ref({
   plan_qty: 0,
   planned_start_date: '',
   planned_end_date: '',
+})
+
+// редактирование этапа (заказчик)
+const showEditWorkItemModal = ref(false)
+const editingWorkItemId = ref<number | null>(null)
+const editWorkItemLoading = ref(false)
+const editWorkItemError = ref<string | null>(null)
+const editWorkItemForm = ref({
+  name: '',
+  description: '',
+  unit: '',
+  plan_qty: 0,
+  planned_start_date: '',
+  planned_end_date: '',
+  sort_order: 0,
+  depends_on_id: null as number | null,
 })
 
 // активация
@@ -780,6 +872,105 @@ async function submitWorkItem() {
     workItemError.value = e.message
   } finally {
     workItemLoading.value = false
+  }
+}
+
+async function openEditWorkItem(item: WorkItem) {
+  editingWorkItemId.value = item.id
+  editWorkItemForm.value = {
+    name: item.name,
+    description: item.description || '',
+    unit: item.unit || '',
+    plan_qty: item.plan_qty,
+    planned_start_date: item.planned_start_date ? item.planned_start_date.slice(0, 10) : '',
+    planned_end_date: item.planned_end_date ? item.planned_end_date.slice(0, 10) : '',
+    sort_order: item.sort_order,
+    depends_on_id: item.depends_on_id || null,
+  }
+  editWorkItemError.value = null
+  showEditWorkItemModal.value = true
+}
+
+async function submitEditWorkItem() {
+  if (!editWorkItemForm.value.name.trim()) {
+    editWorkItemError.value = 'Укажите название этапа'
+    return
+  }
+  if (!editingWorkItemId.value) return
+
+  editWorkItemLoading.value = true
+  editWorkItemError.value = null
+  try {
+    const body: Record<string, any> = {
+      name: editWorkItemForm.value.name,
+      description: editWorkItemForm.value.description,
+      unit: editWorkItemForm.value.unit,
+      plan_qty: editWorkItemForm.value.plan_qty,
+      sort_order: editWorkItemForm.value.sort_order,
+      depends_on_id: editWorkItemForm.value.depends_on_id,
+    }
+    if (editWorkItemForm.value.planned_start_date)
+      body.planned_start_date = new Date(
+        editWorkItemForm.value.planned_start_date,
+      ).toISOString()
+    if (editWorkItemForm.value.planned_end_date)
+      body.planned_end_date = new Date(
+        editWorkItemForm.value.planned_end_date,
+      ).toISOString()
+
+    const res = await fetch(
+      `${API_BASE}/customer/objects/${route.params.id}/work-items/${editingWorkItemId.value}`,
+      {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${auth.token}`,
+        },
+        body: JSON.stringify(body),
+      },
+    )
+    if (!res.ok)
+      throw new Error(
+        (await res.json().catch(() => ({}))).error ?? 'Ошибка',
+      )
+
+    showEditWorkItemModal.value = false
+    editingWorkItemId.value = null
+    await fetchDetail()
+  } catch (e: any) {
+    editWorkItemError.value = e.message
+  } finally {
+    editWorkItemLoading.value = false
+  }
+}
+
+function closeEditWorkItem() {
+  showEditWorkItemModal.value = false
+  editingWorkItemId.value = null
+  editWorkItemError.value = null
+}
+
+async function deleteWorkItem(itemId: number) {
+  if (!confirm('Вы уверены, что хотите удалить этот этап?')) return
+
+  try {
+    const res = await fetch(
+      `${API_BASE}/customer/objects/${route.params.id}/work-items/${itemId}`,
+      {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${auth.token}`,
+        },
+      },
+    )
+    if (!res.ok)
+      throw new Error(
+        (await res.json().catch(() => ({}))).error ?? 'Ошибка',
+      )
+
+    await fetchDetail()
+  } catch (e: any) {
+    alert(e.message || 'Ошибка при удалении')
   }
 }
 
@@ -1105,6 +1296,41 @@ const ganttTasks = computed<GanttTask[]>(() =>
   border: 1px solid #d1d5db; font-size: 14px; text-align: right;
 }
 
+.td-actions {
+  display: flex;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.icon-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.icon-btn:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.icon-btn--edit:hover {
+  background: #eff6ff;
+  border-color: #3b82f6;
+}
+
+.icon-btn--delete:hover {
+  background: #fef2f2;
+  border-color: #ef4444;
+}
+
 .work-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
 .work-actions .action-btn { width: auto; padding: 8px 20px; border-radius: 999px; }
 
@@ -1230,4 +1456,5 @@ const ganttTasks = computed<GanttTask[]>(() =>
   .sidebar { width: 100%; border-right: none; border-bottom: 1px solid #e5e7eb; }
   .form-row { grid-template-columns: 1fr; }
 }
+
 </style>

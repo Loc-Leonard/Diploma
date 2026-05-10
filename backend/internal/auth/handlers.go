@@ -10,6 +10,13 @@ import (
 	"github.com/Loc-Leonard/Diploma/backend/internal/models"
 )
 
+// Route paths
+const (
+	RouteAuthLogin          = "/auth/login"
+	RouteAuthMe             = "/auth/me"
+	RouteAuthChangePassword = "/auth/change-password"
+)
+
 type Handler struct {
 	db *gorm.DB
 }
@@ -30,45 +37,39 @@ type LoginRequest struct {
 	Password string `json:"password" binding:"required"`
 }
 
-type UserDTO struct {
-	ID       uint        `json:"id"`
-	FullName string      `json:"full_name"`
-	Role     models.Role `json:"role"`
-}
-
 type LoginResponse struct {
-	Token              string  `json:"token"`
-	User               UserDTO `json:"user"`
-	MustChangePassword bool    `json:"must_change_password"`
+	Token              string         `json:"token"`
+	User               models.UserDTO `json:"user"`
+	MustChangePassword bool           `json:"must_change_password"`
 }
 
 func (h *Handler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: err.Error()})
 		return
 	}
 
 	var user models.User
 	if err := h.db.Where("email = ? OR phone = ?", req.Login, req.Login).First(&user).Error; err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
+		c.JSON(http.StatusUnauthorized, models.ErrorResponse{Error: "invalid credentials"})
 		return
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
+		c.JSON(http.StatusUnauthorized, models.ErrorResponse{Error: "invalid credentials"})
 		return
 	}
 
 	token, err := GenerateToken(user.ID, string(user.Role))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "token error"})
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{Error: "token error"})
 		return
 	}
 
 	c.JSON(http.StatusOK, LoginResponse{
 		Token: token,
-		User: UserDTO{
+		User: models.UserDTO{
 			ID:       user.ID,
 			FullName: user.FullName,
 			Role:     user.Role,
@@ -82,11 +83,11 @@ func (h *Handler) Me(c *gin.Context) {
 
 	var user models.User
 	if err := h.db.First(&user, userID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		c.JSON(http.StatusNotFound, models.ErrorResponse{Error: "user not found"})
 		return
 	}
 
-	c.JSON(http.StatusOK, UserDTO{
+	c.JSON(http.StatusOK, models.UserDTO{
 		ID:       user.ID,
 		FullName: user.FullName,
 		Role:     user.Role,
@@ -103,24 +104,24 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 
 	var req ChangePasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: err.Error()})
 		return
 	}
 
 	var user models.User
 	if err := h.db.First(&user, userID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		c.JSON(http.StatusNotFound, models.ErrorResponse{Error: "user not found"})
 		return
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.OldPassword)); err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "old password incorrect"})
+		c.JSON(http.StatusUnauthorized, models.ErrorResponse{Error: "old password incorrect"})
 		return
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "hash error"})
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{Error: "hash error"})
 		return
 	}
 
@@ -128,9 +129,9 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 	user.MustChangePassword = false
 
 	if err := h.db.Save(&user).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "save error"})
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{Error: "save error"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	c.JSON(http.StatusOK, models.SuccessResponse{Status: "ok"})
 }

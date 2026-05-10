@@ -14,6 +14,12 @@ import (
 	"github.com/Loc-Leonard/Diploma/backend/internal/models"
 )
 
+// Route paths
+const (
+	RouteAdminUsersCreate = "/admin/users"
+	RouteAdminUsersList   = "/admin/users"
+)
+
 type Handler struct {
 	db *gorm.DB
 }
@@ -23,7 +29,7 @@ const tempPasswordLength = 10
 func generateTempPassword() (string, error) {
 	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
-	var b = make([]byte, tempPasswordLength)
+	b := make([]byte, tempPasswordLength)
 	for i := range b {
 		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(letters))))
 		if err != nil {
@@ -58,27 +64,27 @@ type UserListItem struct {
 	Email     *string     `json:"email"`
 	Phone     *string     `json:"phone"`
 	Role      models.Role `json:"role"`
-	Status    string      `json:"status"`     // пока захардкодим ACTIVE
-	LastLogin *time.Time  `json:"last_login"` // если появится поле в модели
+	Status    string      `json:"status"`
+	LastLogin *time.Time  `json:"last_login"`
 }
 
 func (h *Handler) ListUsers(c *gin.Context) {
 	var users []models.User
 	if err := h.db.Order("id ASC").Find(&users).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "db error"})
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{Error: "db error"})
 		return
 	}
+
 	resp := make([]UserListItem, 0, len(users))
 	for _, u := range users {
-		item := UserListItem{
+		resp = append(resp, UserListItem{
 			ID:       u.ID,
 			FullName: u.FullName,
 			Email:    u.Email,
 			Phone:    u.Phone,
 			Role:     u.Role,
-			Status:   "ACTIVE", // позже можно добавить реальное поле в модель
-		}
-		resp = append(resp, item)
+			Status:   "ACTIVE",
+		})
 	}
 	c.JSON(http.StatusOK, resp)
 }
@@ -86,19 +92,19 @@ func (h *Handler) ListUsers(c *gin.Context) {
 func (h *Handler) CreateUser(c *gin.Context) {
 	var req CreateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: err.Error()})
 		return
 	}
 
 	tempPassword, err := generateTempPassword()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "password generate error"})
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{Error: "password generate error"})
 		return
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(tempPassword), bcrypt.DefaultCost)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "hash error"})
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{Error: "hash error"})
 		return
 	}
 
@@ -112,7 +118,7 @@ func (h *Handler) CreateUser(c *gin.Context) {
 	}
 
 	if err := h.db.Create(&user).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "db error"})
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{Error: "db error"})
 		return
 	}
 
@@ -122,10 +128,11 @@ func (h *Handler) CreateUser(c *gin.Context) {
 		"email":         user.Email,
 		"phone":         user.Phone,
 		"role":          user.Role,
-		"temp_password": tempPassword, // ← показываем админу
+		"temp_password": tempPassword,
 	})
 }
 
+// HandlerForTest возвращает хендлер для тестов
 func HandlerForTest(db *gorm.DB) *Handler {
 	return &Handler{db: db}
 }
