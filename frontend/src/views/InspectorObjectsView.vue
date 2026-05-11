@@ -202,13 +202,16 @@
           <h2>Объекты на карте</h2>
           <button class="close-btn" @click="showMap = false">✕</button>
         </div>
-        <div class="map-placeholder">
-          <div class="map-placeholder-inner">
+        <AppMap
+          v-if="mapMarkers.length"
+          :markers="mapMarkers"
+          height="420px"
+        />
+          <div v-else class="map-placeholder">
+            <div class="map-placeholder-inner">
             <span class="map-icon">🗺</span>
-            <span>Здесь будет карта с объектами</span>
-            <span class="map-hint">
-              {{ filteredObjects.length }} Объектов для отображения
-            </span>
+            <span>Нет объектов для отображения на карте</span>
+            <span class="map-hint">{{ objects.length }} объект(ов) для отображения</span>
           </div>
         </div>
       </div>
@@ -221,6 +224,7 @@ import { ref, computed, onMounted, watch, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useInspectorNotificationsStore } from '@/stores/inspectorNotifications'
+import AppMap from '@/components/AppMap.vue'
 
 const notifications = useInspectorNotificationsStore()
 const API_BASE = 'http://localhost:8080'
@@ -239,6 +243,8 @@ type InspectorObjectItem = {
   foreman_name: string
   planned_start_date?: string | null
   has_pending_action: boolean
+  lat: number
+  lng: number
 }
 
 type ObjectDetails = {
@@ -274,6 +280,22 @@ const modal = reactive({
   submitError: null as string | null,
   submitting: false,
 })
+
+const mapMarkers = computed(() =>
+  objects.value
+    .filter(
+      (o) =>
+        Number.isFinite(o.lat) &&
+        Number.isFinite(o.lng) &&
+        !(o.lat === 0 && o.lng === 0),
+    )
+    .map((o) => ({
+      lat: o.lat,
+      lng: o.lng,
+      title: o.name,
+      subtitle: `${o.city}, ${o.address}`,
+    })),
+)
 
 const pendingObjects = notifications.pendingObjects
 
