@@ -40,7 +40,12 @@
         <!-- ЛЕВАЯ КОЛОНКА -->
         <aside class="detail-aside">
           <div class="mini-map">
-            <div class="map-placeholder-box">🗺</div>
+            <AppMap
+            v-if="objectMapMarkers.length"
+            :markers="objectMapMarkers"
+            height="180px"
+            />
+            <div v-else class="map-placeholder-box">🗺</div>
           </div>
 
           <section class="aside-section">
@@ -475,6 +480,7 @@ import { useAuthStore } from '../stores/auth'
 import CustomerLayout from './CustomerLayout.vue'
 import InspectorLayout from './InspectorLayout.vue'
 import FrappeGantt from '@/components/FrappeGantt.vue'
+import AppMap from '@/components/AppMap.vue'
 
 const API_BASE = 'http://localhost:8080'
 const auth = useAuthStore()
@@ -997,6 +1003,29 @@ const ganttTasks = computed<GanttTask[]>(() =>
     })
     .filter((task): task is GanttTask => task !== null)
 )
+
+
+const objectMapMarkers = computed(() => {
+  const object = detail.value?.object
+  if (!object) return []
+
+  if (
+    !Number.isFinite(object.lat) ||
+    !Number.isFinite(object.lng) ||
+    (object.lat === 0 && object.lng === 0)
+  ) {
+    return []
+  }
+
+  return [
+    {
+      lat: object.lat,
+      lng: object.lng,
+      title: object.name,
+      subtitle: `${object.city}, ${object.address}`,
+    },
+  ]
+})
 </script>
 
 <style scoped>
