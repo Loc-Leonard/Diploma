@@ -22,11 +22,13 @@ const (
 type MaterialDocument struct {
 	ID               uint                 `gorm:"primaryKey" json:"id"`
 	DeliveryID       *uint                `json:"delivery_id"`
+	UploadedBy       *uint                `json:"uploaded_by,omitempty"`
 	DocumentType     MaterialDocumentType `json:"document_type"`
 	StoragePath      string               `json:"storage_path"`
 	OriginalFileName string               `json:"original_file_name"`
 	MimeType         string               `json:"mime_type"`
 	CVStatus         CVProcessingStatus   `json:"cv_status"`
+	CVConfidence     float64              `json:"cv_confidence"`
 	CVPayloadJSON    string               `json:"cv_payload_json"`
 	CreatedAt        time.Time            `json:"created_at"`
 	UpdatedAt        time.Time            `json:"updated_at"`

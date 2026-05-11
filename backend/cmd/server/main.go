@@ -16,11 +16,14 @@ import (
 	"github.com/Loc-Leonard/Diploma/backend/internal/foreman"
 	"github.com/Loc-Leonard/Diploma/backend/internal/inspector"
 	"github.com/Loc-Leonard/Diploma/backend/internal/models"
+	"github.com/Loc-Leonard/Diploma/backend/internal/storage"
 )
 
 func main() {
 	cfg := config.Load()
 	database := db.MustConnect(cfg.DBDsn)
+
+	// Инициализируем CV процессор
 	cvProcessor := cv.HTTPProcessor{
 		BaseURL: cfg.CVServiceURL,
 	}
@@ -28,6 +31,7 @@ func main() {
 	// Очищаем старые ограничения перед миграцией
 	cleanupConstraints(database)
 
+	// Автоматическая миграция моделей
 	if err := database.AutoMigrate(
 		&models.User{},
 		&models.Object{},
@@ -47,6 +51,7 @@ func main() {
 
 	r := gin.Default()
 
+	// CORS настройка
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"http://localhost:5173"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
@@ -57,9 +62,22 @@ func main() {
 	// Регистрация роутов
 	auth.RegisterRoutes(r, database)
 	admin.RegisterRoutes(r, database)
-	customer.RegisterRoutes(r, database)
+
+	// Customer (с CV процессором и хранилищем)
+	customer.RegisterRoutes(r, database, cvProcessor, cfg.StorageRoot)
+
+	// Foreman (с CV процессором и хранилищем)
 	foreman.RegisterRoutes(r, database, cvProcessor, cfg.StorageRoot)
-	inspector.RegisterRoutes(r, database)
+
+	// Inspector (с CV процессором и хранилищем)
+	inspector.RegisterRoutes(r, database, cvProcessor, cfg.StorageRoot)
+
+	// Storage (общие для скачивания файлов)
+	storage.RegisterRoutes(r, database, cfg.StorageRoot)
+
+	log.Printf("🚀 Starting server on :8080")
+	log.Printf("📁 Storage root: %s", cfg.StorageRoot)
+	log.Printf("🔍 CV Service URL: %s", cfg.CVServiceURL)
 
 	if err := r.Run(":8080"); err != nil {
 		log.Fatal(err)

@@ -4,9 +4,13 @@ import ChangePasswordView from '../views/ChangePasswordView.vue'
 import AdminUsersView from '../views/AdminUsersView.vue'
 import CustomerObjectsView from '../views/CustomerObjectsView.vue'
 import CustomerObjectCreate from '../views/CustomerObjectCreate.vue'
+import CustomerObjectView from '../views/CustomerObjectView.vue'
 import ForemanObjectsView from '../views/ForemanObjectsView.vue'
+import ForemanObjectView from '../views/ForemanObjectView.vue'
 import InspectorLayout from '@/views/InspectorLayout.vue'
 import InspectorDashboardView from '../views/InspectorDashboardView.vue'
+import InspectorObjectsView from '../views/InspectorObjectsView.vue'
+import InspectorObjectView from '../views/InspectorObjectView.vue'
 import ObjectDetailView from '../views/ObjectDetailView.vue'
 import { useAuthStore } from '../stores/auth'
 
@@ -24,6 +28,8 @@ const routes: RouteRecordRaw[] = [
     component: AdminUsersView,
     meta: { requiresAuth: true, adminOnly: true },
   },
+  
+  // ===== CUSTOMER =====
   {
     path: '/customer/objects/new',
     name: 'customer-object-create',
@@ -38,10 +44,18 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: '/customer/objects/:id',
+    name: 'customer-object',
+    component: CustomerObjectView,
+    meta: { requiresAuth: true, customerOnly: true },
+  },
+  {
+    path: '/customer/objects/:id',
     name: 'customer-object-details',
     component: ObjectDetailView,
     meta: { requiresAuth: true, customerOnly: true },
   },
+  
+  // ===== FOREMAN =====
   {
     path: '/foreman/objects',
     name: 'foreman-objects',
@@ -51,9 +65,17 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/foreman/objects/:id',
     name: 'foreman-object',
+    component: ForemanObjectView,
+    meta: { requiresAuth: true, foremanOnly: true },
+  },
+  {
+    path: '/foreman/objects/:id',
+    name: 'foreman-object',
     component: ObjectDetailView,
     meta: { requiresAuth: true, foremanOnly: true },
   },
+  
+  // ===== INSPECTOR =====
   {
     path: '/inspector',
     component: InspectorLayout,
@@ -64,17 +86,23 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'objects',
         name: 'inspector-objects',
-        component: () => import('../views/InspectorObjectsView.vue'),
+        component: InspectorObjectsView,
+      },
+      {
+        path: 'objects/:id',
+        name: 'inspector-object',
+        component: InspectorObjectView,
       },
     ],
   },
-  // Detail инспектора — вне InspectorLayout, чтобы занять весь экран
   {
     path: '/inspector/objects/:id',
     name: 'inspector-object-details',
     component: ObjectDetailView,
     meta: { requiresAuth: true, inspectorOnly: true },
   },
+  
+  // ===== CATCH ALL =====
   { path: '/:pathMatch(.*)*', redirect: '/login' },
 ]
 

@@ -148,6 +148,16 @@
             </div>
           </div>
         </section>
+
+        <!-- Блок документов (DocumentManager) -->
+        <section class="documents-section">
+          <DocumentManager
+            v-if="object?.id"
+            :api-base="API_BASE"
+            :object-id="object.id"
+            role="foreman"
+          />
+        </section>
       </template>
     </main>
   </div>
@@ -157,6 +167,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import DocumentManager from '../components/DocumentManager.vue'
 
 const API_BASE = 'http://localhost:8080'
 
@@ -224,7 +235,10 @@ async function loadObject() {
       `${API_BASE}/foreman/objects/${route.params.id}`,
       { headers: { Authorization: `Bearer ${auth.token}` } },
     )
-    if (!res.ok) throw new Error('Ошибка загрузки объекта')
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.error || 'Ошибка загрузки объекта')
+    }
     const data = await res.json()
     object.value = data.object
     workItems.value = data.work_items ?? []
@@ -264,7 +278,10 @@ async function submitReports() {
         body: JSON.stringify({ reports }),
       },
     )
-    if (!res.ok) throw new Error('Ошибка отправки отчёта')
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.error || 'Ошибка отправки отчёта')
+    }
     reportForm.value = {}
     submitSuccess.value = 'Отчёт успешно отправлен'
     setTimeout(() => (submitSuccess.value = null), 3000)
@@ -299,7 +316,10 @@ async function submitDelivery() {
         body: JSON.stringify(deliveryForm.value),
       },
     )
-    if (!res.ok) throw new Error('Ошибка сохранения поставки')
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.error || 'Ошибка сохранения поставки')
+    }
     showDeliveryForm.value = false
     deliveryForm.value = {
       material: '',
@@ -784,6 +804,17 @@ onMounted(loadObject)
     border-right: none;
     border-bottom: 1px solid #e5e7eb;
     padding: 16px;
+  }
+}
+
+.documents-section {
+  margin-top: 16px;
+}
+
+/* Адаптив для документов */
+@media (max-width: 900px) {
+  .documents-section {
+    margin-top: 12px;
   }
 }
 </style>

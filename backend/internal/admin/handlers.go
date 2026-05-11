@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"math/big"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
@@ -49,23 +48,6 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 		gr.POST("/users", h.CreateUser)
 		gr.GET("/users", h.ListUsers)
 	}
-}
-
-type CreateUserRequest struct {
-	FullName string      `json:"full_name" binding:"required"`
-	Email    *string     `json:"email"`
-	Phone    *string     `json:"phone"`
-	Role     models.Role `json:"role" binding:"required"`
-}
-
-type UserListItem struct {
-	ID        uint        `json:"id"`
-	FullName  string      `json:"full_name"`
-	Email     *string     `json:"email"`
-	Phone     *string     `json:"phone"`
-	Role      models.Role `json:"role"`
-	Status    string      `json:"status"`
-	LastLogin *time.Time  `json:"last_login"`
 }
 
 func (h *Handler) ListUsers(c *gin.Context) {

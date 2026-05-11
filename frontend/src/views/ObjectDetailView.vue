@@ -363,43 +363,37 @@
             </div>
           </section>
 
+          <!-- Секция документов с DocumentManager -->
           <section class="card">
-            <div class="card-header"><h2>Документы</h2></div>
-
-            <div
-              v-if="!detail.object.init_act_file_path && !detail.object.init_checklist_json"
-              class="state"
-            >
-              Документов пока нет
-            </div>
-
-            <div v-else class="docs-list">
-              <div v-if="detail.object.init_act_file_path" class="doc-item">
-                <span class="doc-icon">📄</span>
-                <div class="doc-info">
-                  <span class="doc-name">Акт ввода в эксплуатацию</span>
-                  <span class="doc-path">
-                    {{ detail.object.init_act_file_path }}
-                  </span>
-                </div>
-              </div>
-              <div v-if="detail.object.init_checklist_json" class="doc-item">
-                <span class="doc-icon">✅</span>
-                <div class="doc-info">
-                  <span class="doc-name">Чек-лист активации</span>
-                  <details class="doc-details">
-                    <summary>Показать содержимое</summary>
-                    <pre class="doc-pre">
-{{ fmtChecklist(detail.object.init_checklist_json) }}
-                    </pre>
-                  </details>
-                </div>
-              </div>
-            </div>
+            <DocumentManager
+              v-if="detail?.object.id"
+              :documents="documents"
+              :loading="docLoading"
+              :uploading="docUploading"
+              :error="docError"
+              :error-message="docErrorMessage"
+              :deleting-id="docDeletingId"
+              :downloading-id="docDownloadingId"
+              :can-delete-doc="canDeleteDocument"
+              @upload-click="triggerFileInput"
+              @file-select="handleFileSelect"
+              @retry="fetchDocuments"
+              @download="downloadDocument"
+              @delete="deleteDocument"
+              @clear-error="docErrorMessage = null"
+            />
+            <input
+              ref="fileInputRef"
+              type="file"
+              @change="handleFileSelect"
+              accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx"
+              class="hidden-file-input"
+            />
           </section>
         </div>
       </div>
 
+      <!-- Модалки (активация, редактирование, отклонение) -->
       <div
         v-if="showActivateModal"
         class="modal-overlay"
@@ -442,7 +436,6 @@
         </div>
       </div>
 
-      <!-- Модалка редактирования этапа (заказчик) -->
       <div
         v-if="showEditWorkItemModal"
         class="modal-overlay"
@@ -467,14 +460,6 @@
             />
           </div>
           <div class="form-row">
-            <div class="form-field">
-              <label>Единица измерения</label>
-              <input
-                v-model="editWorkItemForm.unit"
-                type="text"
-                placeholder="м³, шт, м²"
-              />
-            </div>
             <div class="form-field">
               <label>Плановый объём</label>
               <input
@@ -552,6 +537,7 @@ import { useAuthStore } from '../stores/auth'
 import CustomerLayout from './CustomerLayout.vue'
 import InspectorLayout from './InspectorLayout.vue'
 import FrappeGantt from '@/components/FrappeGantt.vue'
+import DocumentManager from '@/components/DocumentManager.vue'
 
 const API_BASE = 'http://localhost:8080'
 const auth = useAuthStore()
@@ -615,6 +601,17 @@ interface Delivery {
   date: string
   material: string
   qty: number
+}
+
+interface Document {
+  id: number
+  document_type: string
+  original_file_name: string
+  mime_type: string
+  cv_status: string
+  cv_confidence: number
+  created_at: string
+  uploaded_by: string
 }
 
 interface DetailResponse {
@@ -683,6 +680,16 @@ const rejectReason = ref('')
 const approveLoading = ref(false)
 const decisionError = ref<string | null>(null)
 
+// Документы
+const documents = ref<Document[]>([])
+const docLoading = ref(false)
+const docUploading = ref(false)
+const docError = ref<string | null>(null)
+const docErrorMessage = ref<string | null>(null)
+const docDeletingId = ref<number | null>(null)
+const docDownloadingId = ref<number | null>(null)
+const fileInputRef = ref<HTMLInputElement | null>(null)
+
 // ─── Загрузка ───────────────────────────────────────────────────────────────
 
 function endpointForRole() {
@@ -721,11 +728,219 @@ async function fetchDetail() {
       work_items: Array.isArray(data.work_items) ? data.work_items : [],
       deliveries: Array.isArray(data.deliveries) ? data.deliveries : [],
     }
+    
+    // Загружаем документы после загрузки объекта
+    if (obj.id) {
+      fetchDocuments()
+    }
   } catch (e: any) {
     error.value = e.message
   } finally {
     loading.value = false
   }
+}
+
+// ─── Документы ───────────────────────────────────────────────────────────────
+
+const documentsBaseUrl = computed(() => {
+  if (!detail.value?.object.id) return ''
+  return `${API_BASE}/${role.value.toLowerCase()}/objects/${detail.value.object.id}/documents`
+})
+
+async function fetchDocuments() {
+  if (!documentsBaseUrl.value) return
+  
+  docLoading.value = true
+  docError.value = null
+  try {
+    const res = await fetch(documentsBaseUrl.value, {
+      headers: { 
+        Authorization: `Bearer ${auth.token}`,
+        'Content-Type': 'application/json'
+      }
+    })
+    
+    if (!res.ok) {
+      const errorText = await res.text()
+      let errorData = { error: 'Ошибка загрузки документов' }
+      try {
+        errorData = JSON.parse(errorText)
+      } catch {}
+      throw new Error(errorData.error || `Ошибка ${res.status}`)
+    }
+    
+    const data = await res.json()
+    documents.value = Array.isArray(data) ? data : []
+  } catch (e: any) {
+    docError.value = e.message
+    docErrorMessage.value = e.message
+  } finally {
+    docLoading.value = false
+  }
+}
+
+function triggerFileInput() {
+  if (fileInputRef.value) {
+    fileInputRef.value.click()
+  }
+}
+
+async function handleFileSelect(event: Event) {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (!file) return
+
+  // Проверка размера (10MB)
+  const maxSize = 10 * 1024 * 1024
+  if (file.size > maxSize) {
+    docErrorMessage.value = `Файл слишком большой (макс. 10MB). Размер: ${formatFileSize(file.size)}`
+    return
+  }
+
+  // Проверка типа
+  const allowedTypes = [
+    'image/jpeg', 'image/png', 'image/jpg', 'image/gif',
+    'application/pdf',
+    'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  ]
+  if (!allowedTypes.includes(file.type)) {
+    docErrorMessage.value = 'Неподдерживаемый тип файла'
+    return
+  }
+
+  await uploadFile(file)
+  
+  // Очищаем input
+  if (fileInputRef.value) {
+    fileInputRef.value.value = ''
+  }
+}
+
+async function uploadFile(file: File) {
+  if (!documentsBaseUrl.value) return
+  
+  docUploading.value = true
+  docErrorMessage.value = null
+
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('document_type', 'OTHER')
+
+  try {
+    const uploadUrl = `${documentsBaseUrl.value}/upload`
+    
+    const res = await fetch(uploadUrl, {
+      method: 'POST',
+      headers: { 
+        Authorization: `Bearer ${auth.token}`
+      },
+      body: formData
+    })
+
+    if (!res.ok) {
+      const errorText = await res.text()
+      let errorData = { error: 'Ошибка загрузки файла' }
+      try {
+        errorData = JSON.parse(errorText)
+      } catch {}
+      throw new Error(errorData.error || `Ошибка ${res.status}`)
+    }
+
+    // Обновляем список документов
+    await fetchDocuments()
+  } catch (e: any) {
+    docErrorMessage.value = e.message
+  } finally {
+    docUploading.value = false
+  }
+}
+
+async function downloadDocument(doc: Document) {
+  docDownloadingId.value = doc.id
+  docErrorMessage.value = null
+  
+  try {
+    const downloadUrl = `${API_BASE}/${role.value}/objects/${detail.value?.object.id}/documents/${doc.id}/download`
+    
+    const res = await fetch(downloadUrl, {
+      headers: { Authorization: `Bearer ${auth.token}` }
+    })
+    
+    if (!res.ok) {
+      throw new Error(`Ошибка скачивания: ${res.status}`)
+    }
+
+    const blob = await res.blob()
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = doc.original_file_name
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+  } catch (e: any) {
+    docErrorMessage.value = `Ошибка скачивания: ${e.message}`
+  } finally {
+    docDownloadingId.value = null
+  }
+}
+
+async function deleteDocument(doc: Document) {
+  if (!confirm(`Удалить документ "${doc.original_file_name}"?`)) {
+    return
+  }
+
+  docDeletingId.value = doc.id
+  docErrorMessage.value = null
+
+  try {
+    const url = `${documentsBaseUrl.value}/${doc.id}`
+    
+    const res = await fetch(url, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${auth.token}` }
+    })
+
+    if (!res.ok) {
+      const errorText = await res.text()
+      let errorData = { error: 'Ошибка удаления' }
+      try {
+        errorData = JSON.parse(errorText)
+      } catch {}
+      throw new Error(errorData.error || `Ошибка ${res.status}`)
+    }
+
+    // Обновляем список
+    documents.value = documents.value.filter(d => d.id !== doc.id)
+  } catch (e: any) {
+    docErrorMessage.value = e.message
+  } finally {
+    docDeletingId.value = null
+  }
+}
+
+function canDeleteDocument(doc: Document) {
+  const currentUserId = auth.user?.id
+  const currentUserName = auth.user?.full_name
+  const currentUserRole = auth.user?.role
+  
+  // Админ может удалять все документы
+  if (currentUserRole === 'admin') {
+    return true
+  }
+  
+  // Пользователь может удалять свои документы
+  return doc.uploaded_by === currentUserName || doc.uploaded_by === String(currentUserId)
+}
+
+function formatFileSize(bytes: number) {
+  if (bytes === 0) return '0 Bytes'
+  const k = 1024
+  const sizes = ['Bytes', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
 }
 
 // ─── Прораб ──────────────────────────────────────────────────────────────────
@@ -1346,21 +1561,16 @@ const ganttTasks = computed<GanttTask[]>(() =>
   border: 1px solid #d1d5db; font-size: 14px; background: #fff;
 }
 
-.docs-list { display: flex; flex-direction: column; gap: 10px; }
-.doc-item {
-  display: flex; align-items: flex-start; gap: 12px;
-  padding: 10px 12px; border-radius: 10px;
-  border: 1px solid #e5e7eb; background: #f9fafb;
-}
-.doc-icon { font-size: 22px; flex-shrink: 0; }
-.doc-info { display: flex; flex-direction: column; gap: 2px; }
-.doc-name { font-size: 14px; font-weight: 500; color: #111827; }
-.doc-path { font-size: 12px; color: #6b7280; font-family: monospace; }
-.doc-details summary { font-size: 12px; color: #4f46e5; cursor: pointer; margin-top: 4px; }
-.doc-pre {
-  margin-top: 8px; padding: 8px; background: #f3f4f6;
-  border-radius: 6px; font-size: 12px; white-space: pre-wrap;
-  max-height: 200px; overflow-y: auto;
+.hidden-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .status-chip { padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 500; white-space: nowrap; }
@@ -1377,55 +1587,6 @@ const ganttTasks = computed<GanttTask[]>(() =>
   position: fixed; inset: 0; background: rgba(15,23,42,0.55);
   display: flex; justify-content: center; align-items: center;
   padding: 16px; z-index: 50;
-}
-
-/* ── Гантт ── */
-.gantt-wrap { overflow-x: auto; }
-
-.gantt-row {
-  display: grid;
-  grid-template-columns: 180px 1fr;
-  align-items: center;
-  min-height: 38px;
-  border-bottom: 1px solid #f3f4f6;
-}
-.gantt-row:last-child { border-bottom: none; }
-
-.gantt-label {
-  font-size: 13px; color: #374151;
-  padding: 4px 10px 4px 0;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-
-.gantt-timeline {
-  position: relative; height: 26px;
-  background: #f9fafb; border-radius: 6px;
-}
-
-.gantt-bar {
-  position: absolute; top: 0; height: 100%;
-  border-radius: 6px; display: flex; align-items: center;
-  padding: 0 6px; overflow: hidden; white-space: nowrap;
-}
-
-.gantt-bar-label { font-size: 11px; font-weight: 500; }
-
-.gantt-bar--planned     { background: #e0e7ff; color: #3730a3; }
-.gantt-bar--in_progress { background: #d1fae5; color: #065f46; }
-.gantt-bar--done        { background: #bbf7d0; color: #14532d; }
-.gantt-bar--delayed     { background: #fee2e2; color: #991b1b; }
-
-.gantt-bar--actual {
-  background: rgba(79, 70, 229, 0.15);
-  border: 1.5px solid #4f46e5;
-  z-index: 1;
-}
-
-.gantt-placeholder {
-  height: 100px; border-radius: 10px;
-  border: 2px dashed #e5e7eb; background: #f9fafb;
-  display: flex; align-items: center;
-  justify-content: center; color: #9ca3af; font-size: 14px;
 }
 
 .modal-card {
@@ -1447,6 +1608,13 @@ const ganttTasks = computed<GanttTask[]>(() =>
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
 .modal-actions .action-btn { width: auto; padding: 8px 20px; border-radius: 999px; }
 
+.gantt-placeholder {
+  height: 100px; border-radius: 10px;
+  border: 2px dashed #e5e7eb; background: #f9fafb;
+  display: flex; align-items: center;
+  justify-content: center; color: #9ca3af; font-size: 14px;
+}
+
 @media (max-width: 900px) {
   .detail-body { grid-template-columns: 1fr; }
   .main { padding: 16px 20px; }
@@ -1456,5 +1624,4 @@ const ganttTasks = computed<GanttTask[]>(() =>
   .sidebar { width: 100%; border-right: none; border-bottom: 1px solid #e5e7eb; }
   .form-row { grid-template-columns: 1fr; }
 }
-
 </style>
