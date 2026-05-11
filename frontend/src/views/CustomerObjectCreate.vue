@@ -115,6 +115,12 @@ type SimpleUser = {
   full_name: string
 }
 
+type GeocodeResult = {
+  lat: string
+  lon: string
+  display_name: string
+}
+
 const foremen = ref<SimpleUser[]>([])
 const inspectors = ref<SimpleUser[]>([])
 const submitting = ref(false)
@@ -130,7 +136,7 @@ const form = ref({
   inspectorUserId: 0,
 })
 
-async function loadUsers() {
+async function loadUsers(){
   const headers = { Authorization: `Bearer ${auth.token}` }
 
   try {
@@ -139,20 +145,60 @@ async function loadUsers() {
       fetch(`${API_BASE}/customer/inspectors-list`, { headers }),
     ])
 
-    if (foremenRes.ok) {
+    if (foremenRes.ok){
       foremen.value = await foremenRes.json()
     }
-    if (inspectorsRes.ok) {
+    if (inspectorsRes.ok){
       inspectors.value = await inspectorsRes.json()
     }
-  } catch (e) {
+  } catch (e){
     console.error(e)
+  }
+}
+
+async function geocodeAddress(city: string, address: string) {
+  const url = new URL('https://nominatim.openstreetmap.org/search')
+
+  url.searchParams.set('format', 'jsonv2')
+  url.searchParams.set('limit', '1')
+  url.searchParams.set('country', 'Россия')
+  url.searchParams.set('city', city)
+  url.searchParams.set('street', address)
+
+  const res = await fetch(url.toString(), {
+    headers: {
+      Accept: 'application/json',
+    },
+  })
+
+  if (!res.ok) {
+    throw new Error('Не удалось определить координаты по адресу')
+  }
+
+  const data = (await res.json()) as GeocodeResult[]
+
+  const firstResult = data[0]
+
+  if (!firstResult){
+    throw new Error('Адрес не найден на карте')
+  }
+
+  return {
+    lat: Number(firstResult.lat),
+    lng: Number(firstResult.lon),
+    displayName: firstResult.display_name,
   }
 }
 
 async function submit() {
   submitting.value = true
   try {
+
+    const coords = await geocodeAddress(
+      form.value.city.trim(),
+      form.value.address.trim(),
+    )
+
     const body = {
       name: form.value.name,
       city: form.value.city,
@@ -166,8 +212,8 @@ async function submit() {
         : null,
       foreman_user_id: form.value.foremanUserId,
       inspector_user_id: form.value.inspectorUserId,
-      lat: 0,
-      lng: 0,
+      lat: coords.lat,
+      lng: coords.lng,
     }
 
     const res = await fetch(`${API_BASE}/customer/objects`, {
@@ -196,10 +242,10 @@ function goToObjects() {
   router.push({ name: 'customer-objects' })
 }
 
-function logout() {
-  auth.clearAuth()
-  router.push({ name: 'login' })
-}
+// function logout() {
+//   auth.clearAuth()
+//   router.push({ name: 'login' })
+// }
 
 onMounted(loadUsers)
 </script>
