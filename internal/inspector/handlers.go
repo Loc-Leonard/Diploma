@@ -1,7 +1,6 @@
 package inspector
 
 import (
-	//"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -11,7 +10,6 @@ import (
 
 	"github.com/Loc-Leonard/Diploma/internal/auth"
 	"github.com/Loc-Leonard/Diploma/internal/models"
-	//"github.com/Loc-Leonard/Diploma/internal/objectcore"
 )
 
 func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
@@ -68,6 +66,8 @@ type InspectorObjectListItem struct {
 	ForemanName      string              `json:"foreman_name"`
 	PlannedStartDate *time.Time          `json:"planned_start_date"`
 	HasPendingAction bool                `json:"has_pending_action"`
+	Lat              float64             `json:"lat"`
+	Lng              float64             `json:"lng"`
 }
 
 // GET /inspector/dashboard/checks
@@ -188,6 +188,8 @@ func (h *Handler) ObjectsList(c *gin.Context) {
 		Status           models.ObjectStatus
 		ForemanName      string
 		PlannedStartDate *time.Time
+		Lat              float64
+		Lng              float64
 	}
 
 	var rows []row
@@ -200,7 +202,9 @@ func (h *Handler) ObjectsList(c *gin.Context) {
 			o.address,
 			o.status,
 			COALESCE(u.full_name, '') AS foreman_name,
-			o.planned_start_date
+			o.planned_start_date,
+			o.lat,
+			o.lng
 		FROM objects o
 		LEFT JOIN users u ON u.id = o.foreman_user_id
 		WHERE o.inspector_user_id = ?
@@ -222,7 +226,9 @@ func (h *Handler) ObjectsList(c *gin.Context) {
 				o.address,
 				o.status,
 				COALESCE(u.full_name, '') AS foreman_name,
-				o.planned_start_date
+				o.planned_start_date,
+				o.lat,
+				o.lng
 			FROM objects o
 			LEFT JOIN users u ON u.id = o.foreman_user_id
 			WHERE o.inspector_user_id = ? AND o.status = ?
@@ -246,6 +252,8 @@ func (h *Handler) ObjectsList(c *gin.Context) {
 			ForemanName:      r.ForemanName,
 			PlannedStartDate: r.PlannedStartDate,
 			HasPendingAction: r.Status == models.ObjectStatusWaitingInspectorConfirmation,
+			Lat:              r.Lat,
+			Lng:              r.Lng,
 		})
 	}
 
@@ -270,7 +278,6 @@ func (h *Handler) ObjectDetails(c *gin.Context) {
 		return
 	}
 
-	// Загружаем связанных пользователей
 	var customer, foreman, inspector models.User
 
 	customerName := ""
@@ -294,7 +301,6 @@ func (h *Handler) ObjectDetails(c *gin.Context) {
 		}
 	}
 
-	// Загружаем work_items и deliveries
 	var workItems []models.WorkItem
 	h.db.Where("object_id = ?", obj.ID).Order("id ASC").Find(&workItems)
 
