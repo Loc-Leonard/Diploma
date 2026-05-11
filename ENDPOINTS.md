@@ -19,17 +19,31 @@
 - `POST /customer/objects` - создает новый объект.
 - `POST /customer/objects/:id/activate` - отправляет данные об активации объекта на проверку инспектору.
 - `GET /customer/objects/:id` - информация об объекте
-- `GET /customer/objects/:id/work-items` - list of work items.
-- `POST /customer/objects/:id/work-items` - create new work item.
-- `PUT /customer/objects/:id/work-items/:wid` - update work item.
-- `DELETE /customer/objects/:id/work-items/:wid` - delete work item.
+
+*Виды работ*
+- `GET /customer/objects/:id/work-items` - Список работ.
+- `POST /customer/objects/:id/work-items` - Создание нового вида работы.
+- `PUT /customer/objects/:id/work-items/:wid` - Обновление вида работ.
+- `DELETE /customer/objects/:id/work-items/:wid` - Удаление вида работ.
+
+*Работа с документами*
+- `POST /customer/objects/:id/documents/upload` - Добавление нового документа.
+- `GET /customer/objects/:id/documents` - Список документов.
+- `DELETE /customer/objects/:id/documents/:docId` - Удаление документов.
 
 ### Foreman
 - `GET /foreman/objects` - список объектов, назначенных текущему подрядчику.
 - `GET /foreman/objects/:id` - сведения об объекте, задачи, поставки и прикрепленные материальные документы.
 - `POST /foreman/objects/:id/work-reports` - отправляет отчеты о выполненных за день работах.
-- `POST /foreman/objects/:id/deliveries` - создает запись о ручной поставке материалов.
-- `POST /foreman/objects/:id/deliveries/cv-upload` - загрузка доков, отправка их в CV, сохранение извлеченных данных о поставке, сохранение файла, создание `material_documents`.
+
+*Поставки материала*
+- `GET /foreman/objects/:id/deliveries` - Список поставки материалов.
+- `POST /foreman/objects/:id/deliveries` - Создает запись о ручной поставке материалов.
+
+*Работа с документами*
+- `POST /customer/objects/:id/documents/upload` - Добавление нового документа.
+- `GET /customer/objects/:id/documents` - Список документов.
+- `DELETE /customer/objects/:id/documents/:docId` - Удаление документов.
 
 ### Inspector
 - `GET /inspector/dashboard/checks` - список назначенных проверок.
@@ -37,6 +51,19 @@
 - `GET /inspector/objects` - список объектов, назначенных текущему инспектору.
 - `GET /inspector/objects/:id` - сведения об объекте для рабочего процесса инспектора.
 - `POST /inspector/objects/:id/activation-decision` - подтверждение или отклонение активации объекта.
+
+- `POST /inspector/objects/:id/documents/upload`
+- `GET /inspector/objects/:id/documents`
+- `DELETE /inspector/objects/:id/documents/:docId`
+
+*Поставки материала*
+- `GET /foreman/objects/:id/deliveries` - Список поставки материалов.
+- `POST /foreman/objects/:id/deliveries` - Создает запись о ручной поставке материалов.
+
+*Работа с документами*
+- `POST /customer/objects/:id/documents/upload` - Добавление нового документа.
+- `GET /customer/objects/:id/documents` - Список документов.
+- `DELETE /customer/objects/:id/documents/:docId` - Удаление документов.
 
 ## CV Microservice
 
