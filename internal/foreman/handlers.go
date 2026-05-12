@@ -36,11 +36,14 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 }
 
 type ForemanObjectDTO struct {
-	ID      uint                `json:"id"`
-	Name    string              `json:"name"`
-	City    string              `json:"city"`
-	Address string              `json:"address"`
-	Status  models.ObjectStatus `json:"status"`
+	ID       uint                `json:"id"`
+	Name     string              `json:"name"`
+	City     string              `json:"city"`
+	Address  string              `json:"address"`
+	Status   models.ObjectStatus `json:"status"`
+	Lat      float64             `json:"lat"`
+	Lng      float64             `json:"lng"`
+	Progress float64             `json:"progress"`
 }
 
 // GET /foreman/objects
@@ -59,11 +62,14 @@ func (h *Handler) ListObjects(c *gin.Context) {
 	resp := make([]ForemanObjectDTO, 0, len(objects))
 	for _, o := range objects {
 		resp = append(resp, ForemanObjectDTO{
-			ID:      o.ID,
-			Name:    o.Name,
-			City:    o.City,
-			Address: o.Address,
-			Status:  o.Status,
+			ID:       o.ID,
+			Name:     o.Name,
+			City:     o.City,
+			Address:  o.Address,
+			Status:   o.Status,
+			Lat:      o.Lat,
+			Lng:      o.Lng,
+			Progress: o.Progress,
 		})
 	}
 
