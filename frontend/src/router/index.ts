@@ -44,12 +44,6 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: '/customer/objects/:id',
-    name: 'customer-object',
-    component: CustomerObjectView,
-    meta: { requiresAuth: true, customerOnly: true },
-  },
-  {
-    path: '/customer/objects/:id',
     name: 'customer-object-details',
     component: ObjectDetailView,
     meta: { requiresAuth: true, customerOnly: true },
@@ -60,12 +54,6 @@ const routes: RouteRecordRaw[] = [
     path: '/foreman/objects',
     name: 'foreman-objects',
     component: ForemanObjectsView,
-    meta: { requiresAuth: true, foremanOnly: true },
-  },
-  {
-    path: '/foreman/objects/:id',
-    name: 'foreman-object',
-    component: ForemanObjectView,
     meta: { requiresAuth: true, foremanOnly: true },
   },
   {
@@ -86,25 +74,20 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'objects',
         name: 'inspector-objects',
-        component: InspectorObjectsView,
-      },
-      {
-        path: 'objects/:id',
-        name: 'inspector-object',
-        component: InspectorObjectView,
+        component: () => import('../views/InspectorObjectsView.vue'),
       },
     ],
   },
+  // Detail инспектора — вне InspectorLayout, чтобы занять весь экран
   {
     path: '/inspector/objects/:id',
     name: 'inspector-object-details',
     component: ObjectDetailView,
     meta: { requiresAuth: true, inspectorOnly: true },
   },
-  
-  // ===== CATCH ALL =====
   { path: '/:pathMatch(.*)*', redirect: '/login' },
 ]
+
 
 const router = createRouter({ history: createWebHistory(), routes })
 
