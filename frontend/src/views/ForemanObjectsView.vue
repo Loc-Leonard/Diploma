@@ -2,33 +2,35 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import ForemanLayout from './ForemanLayout.vue'
 
 const API_BASE = 'http://localhost:8080'
 
 const router = useRouter()
 const auth = useAuthStore()
 
-// Приветствие в левом верхнем углу
-const greeting = computed(() => {
-  if (!auth.isAuthenticated) {
-    return 'Добрый день'
-  }
-  const u = auth.user
-  return u?.full_name ? `Добрый день, ${u.full_name}` : 'Добрый день'
-})
+type ForemanObjectStatus =
+  | 'PLANNED'
+  | 'WAITING_INSPECTOR_CONFIRMATION'
+  | 'ACTIVE'
+  | 'FINISHED'
 
 type ForemanObject = {
   id: number
   name: string
   city: string
   address: string
-  status: 'PLANNED' | 'WAITING_INSPECTOR_CONFIRMATION' | 'ACTIVE' | 'FINISHED'
+  status: ForemanObjectStatus
 }
 
 const objects = ref<ForemanObject[]>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
+
 const search = ref('')
+const statusFilter = ref('')
+const cityFilter = ref('')
+const showMap = ref(false)
 
 async function loadObjects() {
   loading.value = true
@@ -40,10 +42,12 @@ async function loadObjects() {
         Authorization: `Bearer ${auth.token}`,
       },
     })
+
     if (!res.ok) {
       const data = await res.json().catch(() => ({}))
       throw new Error(data.error || 'Ошибка загрузки объектов')
     }
+
     objects.value = await res.json()
   } catch (e: any) {
     error.value = e.message || 'Ошибка'
@@ -54,13 +58,33 @@ async function loadObjects() {
 
 const filteredObjects = computed(() => {
   const q = search.value.trim().toLowerCase()
-  if (!q) return objects.value
-  return objects.value.filter((o) =>
-    o.name.toLowerCase().includes(q),
-  )
+
+  return objects.value.filter((o) => {
+    const matchesSearch =
+      !q ||
+      o.name.toLowerCase().includes(q) ||
+      o.city.toLowerCase().includes(q) ||
+      o.address.toLowerCase().includes(q)
+
+    const matchesStatus =
+      !statusFilter.value || o.status === statusFilter.value
+
+    const matchesCity =
+      !cityFilter.value || o.city === cityFilter.value
+
+    return matchesSearch && matchesStatus && matchesCity
+  })
 })
 
-function statusLabel(status: ForemanObject['status']) {
+const uniqueCities = computed(() => {
+  const set = new Set<string>()
+  objects.value.forEach((o) => {
+    if (o.city) set.add(o.city)
+  })
+  return Array.from(set)
+})
+
+function statusLabel(status: ForemanObjectStatus) {
   switch (status) {
     case 'PLANNED':
       return 'Запланирован'
@@ -69,9 +93,18 @@ function statusLabel(status: ForemanObject['status']) {
     case 'ACTIVE':
       return 'Активен'
     case 'FINISHED':
-      return 'Завершен'
+      return 'Завершён'
     default:
       return status
+  }
+}
+
+function statusClass(status: ForemanObjectStatus) {
+  return {
+    'status-chip--planned': status === 'PLANNED',
+    'status-chip--waiting': status === 'WAITING_INSPECTOR_CONFIRMATION',
+    'status-chip--active': status === 'ACTIVE',
+    'status-chip--finished': status === 'FINISHED',
   }
 }
 
@@ -79,43 +112,23 @@ function goToObject(id: number) {
   router.push({ name: 'foreman-object', params: { id } })
 }
 
-function logout() {
-  auth.clearAuth()
-  router.push({ name: 'login' }) // если у логина другое имя маршрута — поправь здесь
-}
-
 onMounted(loadObjects)
 </script>
 
 <template>
-  <div class="customer-layout">
-    <!-- Левое меню -->
-    <aside class="sidebar">
-      <div class="sidebar-top">
-        <div class="sidebar-logo">{{ greeting }}</div>
+  <div class="foreman-layout-page">
+    <ForemanLayout />
 
-        <nav class="sidebar-nav">
-          <button class="nav-item nav-item--active">Объекты</button>
-          <button class="nav-item" disabled>Поставки</button>
-          <button class="nav-item" disabled>Замечания</button>
-        </nav>
-      </div>
-
-      <div class="sidebar-bottom">
-        <div class="role-badge">
-          <span class="role-dot role-dot--foreman"></span>
-          <span>Прораб</span>
+    <main class="foreman-main">
+      <header class="foreman-header">
+        <div class="foreman-header-left">
+          <h1 class="foreman-title">Мои объекты</h1>
+          <button class="map-btn" @click="showMap = true">
+            Показать на карте
+          </button>
         </div>
-        <button class="logout-button" @click="logout">Выйти</button>
-      </div>
-    </aside>
 
-    <!-- Центральная часть: список объектов -->
-    <main class="customer-main">
-      <header class="customer-header">
-        <h1 class="customer-title">Мои объекты</h1>
-
-        <div class="customer-header-right">
+        <div class="foreman-header-right">
           <div class="search-wrapper">
             <input
               v-model="search"
@@ -126,320 +139,374 @@ onMounted(loadObjects)
         </div>
       </header>
 
-      <section class="dashboard">
-        <div class="column column--objects">
-          <div class="column-header">
-            <h2>Объекты</h2>
-          </div>
+      <div class="filters-row">
+        <select v-model="statusFilter">
+          <option value="">Все статусы</option>
+          <option value="PLANNED">Запланирован</option>
+          <option value="WAITING_INSPECTOR_CONFIRMATION">Ожидает подтверждения</option>
+          <option value="ACTIVE">Активен</option>
+          <option value="FINISHED">Завершён</option>
+        </select>
 
-          <div v-if="loading" class="state">Загружаю объекты...</div>
-          <div v-else-if="error" class="state state--error">
-            {{ error }}
-          </div>
-          <div v-else>
-            <div
-              v-for="obj in filteredObjects"
-              :key="obj.id"
-              class="object-card"
-            >
-              <div class="object-card-main">
-                <div>
-                  <div class="object-name">{{ obj.name }}</div>
-                  <div class="object-city">
-                    {{ obj.city }}, {{ obj.address }}
-                  </div>
+        <select v-model="cityFilter">
+          <option value="">Все города</option>
+          <option v-for="city in uniqueCities" :key="city" :value="city">
+            {{ city }}
+          </option>
+        </select>
+      </div>
+
+      <section class="objects-section">
+        <div v-if="loading" class="state">Загружаю объекты...</div>
+        <div v-else-if="error" class="state state--error">
+          {{ error }}
+        </div>
+
+        <template v-else>
+          <div
+            v-for="obj in filteredObjects"
+            :key="obj.id"
+            class="object-card"
+          >
+            <div class="object-card-main">
+              <div>
+                <div class="object-name">{{ obj.name }}</div>
+                <div class="object-city">
+                  {{ obj.city }}, {{ obj.address }}
                 </div>
-                <span class="status-chip">
-                  {{ statusLabel(obj.status) }}
-                </span>
               </div>
 
-              <div class="object-actions">
-                <button class="secondary-btn" @click="goToObject(obj.id)">
-                  Перейти
-                </button>
-              </div>
+              <span class="status-chip" :class="statusClass(obj.status)">
+                {{ statusLabel(obj.status) }}
+              </span>
             </div>
 
-            <div v-if="!filteredObjects.length" class="state">
-              Объектов нет
+            <div class="object-actions">
+              <button class="secondary-btn" @click="goToObject(obj.id)">
+                Перейти
+              </button>
             </div>
           </div>
-        </div>
 
-        <!-- Правая колонка-заглушка -->
-        <div class="column column--foremen">
-          <div class="column-header">
-            <h2>Информация</h2>
+          <div v-if="!filteredObjects.length" class="state">
+            Объектов нет
           </div>
-          <div class="state">
-            Здесь позже появятся сводки по поставкам и работам
-          </div>
-        </div>
+        </template>
       </section>
     </main>
 
-    <!-- Правая колонка: карта -->
-    <aside class="map-aside">
-      <div class="column column--map">
-        <div class="column-header">
-          <h2>Карта</h2>
+    <div v-if="showMap" class="modal-overlay" @click.self="showMap = false">
+      <div class="modal-card modal-card--map">
+        <div class="modal-map-header">
+          <h2>Объекты на карте</h2>
+          <button class="close-btn" @click="showMap = false">✕</button>
         </div>
 
         <div class="map-placeholder">
-          Здесь будет карта ваших объектов
+          <div class="map-placeholder-inner">
+            <span class="map-icon">🗺</span>
+            <span>Здесь будет карта с объектами</span>
+            <span class="map-hint">{{ objects.length }} объект(ов) для отображения</span>
+          </div>
         </div>
       </div>
-    </aside>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.customer-layout {
+.foreman-layout-page {
   display: grid;
-  grid-template-columns: 206px auto 1fr;
+  grid-template-columns: 206px 1fr;
   min-height: 100vh;
   background: #f9fafb;
 }
 
-/* Сайдбар */
-.sidebar {
-  grid-column: 1;
-  width: 206px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 20px 18px;
-  background: #ffffff;
-  border-right: 1px solid #e5e7eb;
-}
-
-.sidebar-logo {
-  font-size: 20px;
-  font-weight: 700;
-  margin-bottom: 24px;
-}
-
-.sidebar-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.nav-item {
-  text-align: left;
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: none;
-  background: transparent;
-  font-size: 14px;
-  color: #4b5563;
-  cursor: pointer;
-}
-
-.nav-item--active {
-  background: #eef2ff;
-  color: #4338ca;
-}
-
-.nav-item[disabled] {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.sidebar-bottom {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.logout-button {
-  padding: 7px 16px;
-  border-radius: 999px;
-  border: 1px solid #e5e7eb;
-  background: #ffffff;
-  font-size: 13px;
-  color: #6b7280;
-  cursor: pointer;
-}
-
-.role-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: #6b7280;
-}
-
-.role-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-}
-
-.role-dot--foreman {
-  background: #f1ce06;
-}
-
-/* Центральная часть */
-.customer-main {
-  grid-column: 2;
-  padding: 20px 24px;
+.foreman-main {
+  padding: 24px 32px;
   box-sizing: border-box;
-  margin-left: 35px;
+  min-width: 0;
 }
 
-.customer-header {
+.foreman-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.foreman-header-left {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
-.customer-title {
+.foreman-title {
   margin: 0;
   font-size: 22px;
   font-weight: 600;
   color: #111827;
 }
 
-.customer-header-right {
+.foreman-header-right {
   display: flex;
   align-items: center;
   gap: 12px;
-}
-
-.search-wrapper {
-  max-width: 280px;
-  width: 100%;
+  margin-left: auto;
 }
 
 .search-wrapper input {
-  width: 100%;
-  padding: 8px 11px;
+  width: 240px;
+  padding: 8px 12px;
   border-radius: 999px;
   border: 1px solid #d1d5db;
   background: #f9fafb;
   font-size: 14px;
+  outline: none;
 }
 
-/* Дашборд */
-.dashboard {
-  display: grid;
-  grid-template-columns: 359px 292px 445px;
-  gap: 16px;
-}
-
-/* Колонки */
-.column {
+.map-btn {
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid #d1d5db;
   background: #ffffff;
-  border-radius: 16px;
-  padding: 16px;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
-  border: 1px solid #e5e7eb;
+  color: #374151;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.map-btn:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.filters-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.filters-row select {
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  font-size: 13px;
+  min-width: 160px;
+  cursor: pointer;
+}
+
+.objects-section {
   display: flex;
   flex-direction: column;
+  gap: 10px;
 }
 
-.column-header {
+.object-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 14px 16px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  transition: box-shadow 0.15s;
+}
+
+.object-card:hover {
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+}
+
+.object-card-main {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  align-items: flex-start;
+  gap: 12px;
 }
 
-.column-header h2 {
-  margin: 0;
-  font-size: 16px;
+.object-name {
   font-weight: 600;
+  font-size: 15px;
+  color: #111827;
+}
+
+.object-city {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+.status-chip {
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.status-chip--planned { background: #e5e7eb; color: #374151; }
+.status-chip--waiting { background: #fef3c7; color: #92400e; }
+.status-chip--active { background: #dcfce7; color: #166534; }
+.status-chip--finished { background: #e0f2fe; color: #1d4ed8; }
+
+.object-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.secondary-btn {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: none;
+  background: #e5e7eb;
+  color: #374151;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.secondary-btn:hover {
+  background: #d1d5db;
 }
 
 .state {
   font-size: 13px;
   color: #6b7280;
+  padding: 8px 0;
 }
 
 .state--error {
   color: #b91c1c;
 }
 
-/* Карточка объекта */
-.object-card {
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
-  padding: 10px 12px;
-  margin-bottom: 8px;
-  background: #f9fafb;
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+  z-index: 50;
 }
 
-.object-card-main {
+.modal-card {
+  width: 100%;
+  max-width: 800px;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 20px 22px;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+  box-sizing: border-box;
+}
+
+.modal-card--map {
+  max-width: 800px;
+}
+
+.modal-map-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 14px;
 }
 
-.object-name {
+.modal-map-header h2 {
+  margin: 0;
+  font-size: 18px;
   font-weight: 600;
-  font-size: 14px;
+  color: #111827;
 }
 
-.object-city {
-  font-size: 12px;
-  color: #6b7280;
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background 0.15s, color 0.15s;
 }
 
-.status-chip {
-  padding: 2px 10px;
-  border-radius: 999px;
-  font-size: 11px;
-}
-
-.status-chip--planned {
-  background: #e5e7eb;
+.close-btn:hover {
+  background: #f3f4f6;
   color: #374151;
 }
 
-.status-chip--waiting {
-  background: #fef3c7;
-  color: #92400e;
-}
-
-.status-chip--active {
-  background: #dcfce7;
-  color: #166534;
-}
-
-.status-chip--finished {
-  background: #e0f2fe;
-  color: #1d4ed8;
-}
-
-.object-actions {
-  margin-top: 8px;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.secondary-btn {
-  padding: 6px 12px;
-  border-radius: 999px;
-  border: none;
-  background: #e5e7eb;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-/* Карта */
 .map-placeholder {
-  flex: 1;
+  height: 420px;
   border-radius: 12px;
-  border: 1px dashed #d1d5db;
+  border: 2px dashed #d1d5db;
   background: #f9fafb;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.map-placeholder-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
   color: #9ca3af;
-  font-size: 13px;
-  margin-top: 8px;
+  font-size: 14px;
+}
+
+.map-icon {
+  font-size: 40px;
+}
+
+.map-hint {
+  font-size: 12px;
+  color: #d1d5db;
+}
+
+@media (max-width: 900px) {
+  .foreman-main {
+    padding: 16px 20px;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .foreman-layout-page {
+    grid-template-columns: 1fr;
+  }
+
+  .foreman-main {
+    padding: 16px;
+  }
+
+  .foreman-header-left {
+    width: 100%;
+  }
+
+  .foreman-header-right {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .search-wrapper input {
+    width: 100%;
+  }
+
+  .object-card-main {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .modal-card--map {
+    padding: 16px;
+  }
+
+  .map-placeholder {
+    height: 280px;
+  }
 }
 </style>
