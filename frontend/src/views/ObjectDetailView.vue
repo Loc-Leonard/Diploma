@@ -2,7 +2,8 @@
   <div class="layout">
     <CustomerLayout v-if="role === 'CUSTOMER'" />
     <InspectorLayout v-else-if="role === 'INSPECTOR'" />
-    <aside v-else class="sidebar">
+    <ForemanLayout v-else-if="role === 'FOREMAN'"/>
+    <!-- <aside v-else class="sidebar">
       <div class="sidebar-top">
         <div class="sidebar-logo">{{ greeting }}</div>
         <nav class="sidebar-nav">
@@ -16,7 +17,7 @@
         </div>
         <button class="logout-button" @click="logout">Выйти</button>
       </div>
-    </aside>
+    </aside> -->
 
     <main class="main">
       <header class="page-header">
@@ -481,6 +482,7 @@ import CustomerLayout from './CustomerLayout.vue'
 import InspectorLayout from './InspectorLayout.vue'
 import FrappeGantt from '@/components/FrappeGantt.vue'
 import AppMap from '@/components/AppMap.vue'
+import ForemanLayout from './ForemanLayout.vue'
 
 const API_BASE = 'http://localhost:8080'
 const auth = useAuthStore()
@@ -488,10 +490,6 @@ const route = useRoute()
 const router = useRouter()
 
 const role = computed(() => auth.user?.role ?? '')
-const greeting = computed(() => {
-  const name = auth.user?.full_name
-  return name ? `Добрый день, ${name}` : 'Добрый день'
-})
 
 // ─── Типы ────────────────────────────────────────────────────────────────────
 
@@ -1035,27 +1033,6 @@ const objectMapMarkers = computed(() => {
   min-height: 100vh;
   background: #f9fafb;
 }
-.sidebar {
-  width: 206px; display: flex; flex-direction: column;
-  justify-content: space-between; padding: 20px 18px;
-  background: #ffffff; border-right: 1px solid #e5e7eb;
-}
-.sidebar-logo { font-size: 15px; font-weight: 700; margin-bottom: 24px; color: #111827; }
-.sidebar-nav { display: flex; flex-direction: column; gap: 6px; }
-.nav-item {
-  text-align: left; padding: 8px 10px; border-radius: 8px;
-  border: none; background: transparent; font-size: 14px;
-  color: #4b5563; cursor: pointer;
-}
-.nav-item--active { background: #eef2ff; color: #4338ca; }
-.sidebar-bottom { display: flex; flex-direction: column; gap: 10px; }
-.logout-button {
-  padding: 7px 16px; border-radius: 999px; border: 1px solid #e5e7eb;
-  background: #ffffff; font-size: 13px; color: #6b7280; cursor: pointer;
-}
-.role-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #6b7280; }
-.role-dot { width: 10px; height: 10px; border-radius: 999px; }
-.role-dot--foreman { background: #f59e0b; }
 
 .main { padding: 24px 32px; box-sizing: border-box; min-width: 0; }
 
