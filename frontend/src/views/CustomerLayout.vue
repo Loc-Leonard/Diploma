@@ -10,7 +10,6 @@
         >
           Объекты
         </button>
-        <button class="nav-item" disabled>График</button>
         <button class="nav-item" disabled>Замечания</button>
         <button class="nav-item" disabled>Проверки</button>
         <button class="nav-item" disabled>Справочники</button>
