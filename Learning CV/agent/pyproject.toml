@@ -1,0 +1,27 @@
+[project]
+name = "docscan-cv"
+version = "0.1.0"
+description = "Baseline CV pipeline for TTN document scanning and field extraction."
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi>=0.116.1",
+  "PyYAML>=6.0",
+  "pillow>=12.0.0",
+  "python-multipart>=0.0.20",
+  "pymupdf>=1.27.0",
+  "rapidocr-onnxruntime>=1.4.4",
+  "uvicorn>=0.35.0",
+]
+
+[project.scripts]
+docscan = "docscan.cli:main"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

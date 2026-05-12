@@ -1,0 +1,14 @@
+
+dist
+build
+.cache
+.git
+.gitignore
+*.log
+*.md
+*.yml
+.env
+.idea
+.vscode
+.sass-cache
+cypress

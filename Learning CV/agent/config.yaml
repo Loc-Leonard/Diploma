@@ -1,0 +1,20 @@
+dataset_root: ../dataset
+target_subdirs:
+  - ТТН и паспорта качества
+ttn_keywords:
+  - ттн
+  - товарно-транспортная
+  - накладная
+non_ttn_keywords:
+  - паспорт качества
+  - документы на
+supported_extensions:
+  - .pdf
+  - .jpg
+  - .jpeg
+  - .png
+pdf_max_pages: 3
+inventory_output: outputs/inventory.json
+extraction_output: outputs/extractions.jsonl
+dataset_output_root: output
+text_output_dir: output/processed_text

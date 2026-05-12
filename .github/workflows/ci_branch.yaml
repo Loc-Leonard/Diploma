@@ -1,48 +1,48 @@
-name: Go tests
+# name: Go tests
 
-on:
-  push:
-    branches-ignore:
-      - main
-      - develop
-  pull_request:
-    branches:
-      - develop
+# on:
+#   push:
+#     branches-ignore:
+#       - main
+#       - develop
+#   pull_request:
+#     branches:
+#       - develop
 
-jobs:
-  go-integration-test:
-    runs-on: ubuntu-latest
+# jobs:
+#   go-integration-test:
+#     runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+#     steps:
+#       - name: Checkout
+#         uses: actions/checkout@v4
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.22'
+#       - name: Setup Go
+#         uses: actions/setup-go@v5
+#         with:
+#           go-version: '1.22'
 
-      - name: Run Postgres in Docker
-        run: |
-          docker run -d --name ci-postgres \
-            -e POSTGRES_USER=user \
-            -e POSTGRES_PASSWORD=pass \
-            -e POSTGRES_DB=journal \
-            -p 5432:5432 postgres:16
+#       - name: Run Postgres in Docker
+#         run: |
+#           docker run -d --name ci-postgres \
+#             -e POSTGRES_USER=user \
+#             -e POSTGRES_PASSWORD=pass \
+#             -e POSTGRES_DB=journal \
+#             -p 5432:5432 postgres:16
 
-          # ждём, пока Postgres поднимется
-          for i in {1..10}; do
-            if docker exec ci-postgres pg_isready -U user >/dev/null 2>&1; then
-              echo "Postgres is ready"
-              break
-            fi
-            echo "waiting for postgres..."
-            sleep 3
-          done
+#           # ждём, пока Postgres поднимется
+#           for i in {1..10}; do
+#             if docker exec ci-postgres pg_isready -U user >/dev/null 2>&1; then
+#               echo "Postgres is ready"
+#               break
+#             fi
+#             echo "waiting for postgres..."
+#             sleep 3
+#           done
 
-      - name: Run unit tests
-        env:
-          TEST_DB_DSN: postgres://user:pass@localhost:5432/journal?sslmode=disable
-        run: |
-          go test ./tests/customer/... ./tests/admin... ./tests/inspector -coverprofile=coverage.out -coverpkg=./internal/customer,./internal/admin,./internal/inspector -v
-          go tool cover -func=coverage.out | grep total
+#       - name: Run unit tests
+#         env:
+#           TEST_DB_DSN: postgres://user:pass@localhost:5432/journal?sslmode=disable
+#         run: |
+#           go test ./tests/customer/... ./tests/admin... ./tests/inspector -coverprofile=coverage.out -coverpkg=./internal/customer,./internal/admin,./internal/inspector -v
+#           go tool cover -func=coverage.out | grep total

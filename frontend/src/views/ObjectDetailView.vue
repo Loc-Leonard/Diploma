@@ -23,7 +23,11 @@
         <div class="page-header-left">
           <button class="back-btn" @click="goBack">← Назад</button>
           <h1 class="page-title">{{ detail?.object.name ?? '...' }}</h1>
-          <span v-if="detail" class="status-chip" :class="statusClass(detail.object.status)">
+          <span
+            v-if="detail"
+            class="status-chip"
+            :class="statusClass(detail.object.status)"
+          >
             {{ statusLabel(detail.object.status) }}
           </span>
         </div>
@@ -74,7 +78,6 @@
             <p class="aside-desc">{{ detail.object.description }}</p>
           </section>
 
-          <!-- Заказчик: кнопка активации -->
           <template v-if="role === 'CUSTOMER'">
             <button
               v-if="detail.object.status === 'PLANNED'"
@@ -83,52 +86,67 @@
             >
               Активировать объект
             </button>
-            <div v-if="detail.object.status === 'WAITING_INSPECTOR_CONFIRMATION'" class="info-notice">
+            <div
+              v-if="detail.object.status === 'WAITING_INSPECTOR_CONFIRMATION'"
+              class="info-notice"
+            >
               Ожидает решения инспектора
             </div>
-            <div v-if="detail.object.activation_reject_reason" class="reject-notice">
+            <div
+              v-if="detail.object.activation_reject_reason"
+              class="reject-notice"
+            >
               <span class="reject-label">Причина отклонения:</span>
               {{ detail.object.activation_reject_reason }}
             </div>
           </template>
 
-          <!-- Инспектор: approve/reject -->
-          <template v-if="role === 'INSPECTOR' && detail.object.status === 'WAITING_INSPECTOR_CONFIRMATION'">
+          <template
+            v-if="role === 'INSPECTOR' && detail.object.status === 'WAITING_INSPECTOR_CONFIRMATION'"
+          >
             <div class="inspector-actions">
               <h2 class="aside-title">Решение по активации</h2>
-              <button class="action-btn action-btn--primary" @click="approveActivation" :disabled="approveLoading">
+              <button
+                class="action-btn action-btn--primary"
+                @click="approveActivation"
+                :disabled="approveLoading"
+              >
                 {{ approveLoading ? 'Сохраняю...' : 'Подтвердить' }}
               </button>
-              <button class="action-btn action-btn--danger" @click="showRejectModal = true">
+              <button
+                class="action-btn action-btn--danger"
+                @click="showRejectModal = true"
+              >
                 Отклонить
               </button>
-              <div v-if="decisionError" class="state state--error">{{ decisionError }}</div>
+              <div v-if="decisionError" class="state state--error">
+                {{ decisionError }}
+              </div>
             </div>
           </template>
         </aside>
 
         <div class="detail-main">
-
-          <!-- График работ -->
           <section class="card">
-  <div class="card-header"><h2>График работ</h2></div>
+            <div class="card-header">
+              <h2>График работ</h2>
+            </div>
 
-  <div v-if="!ganttTasks.length" class="gantt-placeholder">
-    Добавьте этапы с плановыми датами, чтобы увидеть график
-  </div>
+            <div v-if="!ganttTasks.length" class="gantt-placeholder">
+              Добавьте этапы с плановыми датами, чтобы увидеть график
+            </div>
 
-  <FrappeGantt
-    v-else
-    :tasks="ganttTasks"
-    view-mode="Week"
-  />
-</section>
+            <FrappeGantt
+              v-else
+              :tasks="ganttTasks"
+              :view-mode="ganttViewMode"
+              height="auto"
+            />
+          </section>
 
-          <!-- Виды работ -->
           <section class="card">
             <div class="card-header">
               <h2>Виды работ</h2>
-              <!-- Кнопка только для заказчика -->
               <button
                 v-if="role === 'CUSTOMER'"
                 class="action-btn action-btn--small"
@@ -138,20 +156,34 @@
               </button>
             </div>
 
-            <!-- Форма добавления этапа (только заказчик) -->
-            <div v-if="role === 'CUSTOMER' && showWorkItemForm" class="delivery-form">
+            <div
+              v-if="role === 'CUSTOMER' && showWorkItemForm"
+              class="delivery-form"
+            >
               <div class="form-row">
                 <div class="form-field">
                   <label>Название *</label>
-                  <input v-model="workItemForm.name" type="text" placeholder="Земляные работы" />
+                  <input
+                    v-model="workItemForm.name"
+                    type="text"
+                    placeholder="Земляные работы"
+                  />
                 </div>
                 <div class="form-field">
                   <label>Единица измерения</label>
-                  <input v-model="workItemForm.unit" type="text" placeholder="м³, шт, м²" />
+                  <input
+                    v-model="workItemForm.unit"
+                    type="text"
+                    placeholder="м³, шт, м²"
+                  />
                 </div>
                 <div class="form-field">
                   <label>Плановый объём</label>
-                  <input v-model.number="workItemForm.plan_qty" type="number" min="0" />
+                  <input
+                    v-model.number="workItemForm.plan_qty"
+                    type="number"
+                    min="0"
+                  />
                 </div>
               </div>
               <div class="form-row">
@@ -164,15 +196,23 @@
                   <input v-model="workItemForm.planned_end_date" type="date" />
                 </div>
               </div>
-              <div v-if="workItemError" class="state state--error">{{ workItemError }}</div>
+              <div v-if="workItemError" class="state state--error">
+                {{ workItemError }}
+              </div>
               <div class="work-actions">
-                <button class="action-btn action-btn--primary" @click="submitWorkItem" :disabled="workItemLoading">
+                <button
+                  class="action-btn action-btn--primary"
+                  @click="submitWorkItem"
+                  :disabled="workItemLoading"
+                >
                   {{ workItemLoading ? 'Сохраняю...' : 'Добавить' }}
                 </button>
               </div>
             </div>
 
-            <div v-if="!(detail.work_items?.length)" class="state">Работы не добавлены</div>
+            <div v-if="!(detail.work_items?.length)" class="state">
+              Работы не добавлены
+            </div>
 
             <div v-else class="work-table-wrapper">
               <table class="work-table">
@@ -181,16 +221,41 @@
                     <th>Наименование</th>
                     <th>Ед.</th>
                     <th>План</th>
+                    <th v-if="role === 'CUSTOMER'">Действия</th>
                     <th v-if="role === 'FOREMAN'">Факт (сегодня)</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="item in (detail.work_items || [])" :key="item.id">
+                  <tr
+                    v-for="item in (detail.work_items || [])"
+                    :key="item.id"
+                  >
                     <td>{{ item.name }}</td>
                     <td class="td-unit">{{ item.unit }}</td>
                     <td class="td-plan">{{ item.plan_qty }}</td>
+                    <td v-if="role === 'CUSTOMER'" class="td-actions">
+                      <button
+                        class="icon-btn icon-btn--edit"
+                        @click="openEditWorkItem(item)"
+                        title="Редактировать"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        class="icon-btn icon-btn--delete"
+                        @click="deleteWorkItem(item.id)"
+                        title="Удалить"
+                      >
+                        🗑️
+                      </button>
+                    </td>
                     <td v-if="role === 'FOREMAN'" class="td-input">
-                      <input type="number" min="0" v-model.number="reportForm[item.id]" placeholder="0" />
+                      <input
+                        type="number"
+                        min="0"
+                        v-model.number="reportForm[item.id]"
+                        placeholder="0"
+                      />
                     </td>
                   </tr>
                 </tbody>
@@ -198,17 +263,24 @@
             </div>
 
             <template v-if="role === 'FOREMAN' && detail.work_items?.length">
-              <div v-if="submitError" class="state state--error">{{ submitError }}</div>
-              <div v-if="submitSuccess" class="state state--success">{{ submitSuccess }}</div>
+              <div v-if="submitError" class="state state--error">
+                {{ submitError }}
+              </div>
+              <div v-if="submitSuccess" class="state state--success">
+                {{ submitSuccess }}
+              </div>
               <div class="work-actions">
-                <button class="action-btn action-btn--primary" @click="submitReports" :disabled="submitting">
+                <button
+                  class="action-btn action-btn--primary"
+                  @click="submitReports"
+                  :disabled="submitting"
+                >
                   {{ submitting ? 'Сохраняю...' : 'Сохранить отчёт' }}
                 </button>
               </div>
             </template>
           </section>
 
-          <!-- Поставки -->
           <section class="card">
             <div class="card-header">
               <h2>Поставки материалов</h2>
@@ -221,37 +293,64 @@
               </button>
             </div>
 
-            <div v-if="role === 'FOREMAN' && showDeliveryForm" class="delivery-form">
+            <div
+              v-if="role === 'FOREMAN' && showDeliveryForm"
+              class="delivery-form"
+            >
               <div class="form-row">
                 <div class="form-field">
                   <label>Материал</label>
-                  <input v-model="deliveryForm.material" type="text" placeholder="Кирпич, м³" />
+                  <input
+                    v-model="deliveryForm.material"
+                    type="text"
+                    placeholder="Кирпич, м³"
+                  />
                 </div>
                 <div class="form-field">
                   <label>Количество</label>
-                  <input v-model.number="deliveryForm.qty" type="number" min="0" />
+                  <input
+                    v-model.number="deliveryForm.qty"
+                    type="number"
+                    min="0"
+                  />
                 </div>
                 <div class="form-field">
                   <label>Дата</label>
                   <input v-model="deliveryForm.date" type="date" />
                 </div>
               </div>
-              <div v-if="deliveryError" class="state state--error">{{ deliveryError }}</div>
+              <div v-if="deliveryError" class="state state--error">
+                {{ deliveryError }}
+              </div>
               <div class="work-actions">
-                <button class="action-btn action-btn--primary" @click="submitDelivery" :disabled="deliveryLoading">
+                <button
+                  class="action-btn action-btn--primary"
+                  @click="submitDelivery"
+                  :disabled="deliveryLoading"
+                >
                   {{ deliveryLoading ? 'Сохраняю...' : 'Добавить поставку' }}
                 </button>
               </div>
             </div>
 
-            <div v-if="!(detail.deliveries?.length) && !showDeliveryForm" class="state">
+            <div
+              v-if="!(detail.deliveries?.length) && !showDeliveryForm"
+              class="state"
+            >
               Поставок пока нет
             </div>
 
-            <div v-else-if="detail.deliveries?.length" class="work-table-wrapper">
+            <div
+              v-else-if="detail.deliveries?.length"
+              class="work-table-wrapper"
+            >
               <table class="work-table">
                 <thead>
-                  <tr><th>Дата</th><th>Материал</th><th>Количество</th></tr>
+                  <tr>
+                    <th>Дата</th>
+                    <th>Материал</th>
+                    <th>Количество</th>
+                  </tr>
                 </thead>
                 <tbody>
                   <tr v-for="d in (detail.deliveries || [])" :key="d.id">
@@ -264,48 +363,51 @@
             </div>
           </section>
 
-          <!-- Документы -->
+          <!-- Секция документов с DocumentManager -->
           <section class="card">
-            <div class="card-header"><h2>Документы</h2></div>
-
-            <div
-              v-if="!detail.object.init_act_file_path && !detail.object.init_checklist_json"
-              class="state"
-            >
-              Документов пока нет
-            </div>
-
-            <div v-else class="docs-list">
-              <div v-if="detail.object.init_act_file_path" class="doc-item">
-                <span class="doc-icon">📄</span>
-                <div class="doc-info">
-                  <span class="doc-name">Акт ввода в эксплуатацию</span>
-                  <span class="doc-path">{{ detail.object.init_act_file_path }}</span>
-                </div>
-              </div>
-              <div v-if="detail.object.init_checklist_json" class="doc-item">
-                <span class="doc-icon">✅</span>
-                <div class="doc-info">
-                  <span class="doc-name">Чек-лист активации</span>
-                  <details class="doc-details">
-                    <summary>Показать содержимое</summary>
-                    <pre class="doc-pre">{{ fmtChecklist(detail.object.init_checklist_json) }}</pre>
-                  </details>
-                </div>
-              </div>
-            </div>
+            <DocumentManager
+              v-if="detail?.object.id"
+              :documents="documents"
+              :loading="docLoading"
+              :uploading="docUploading"
+              :error="docError"
+              :error-message="docErrorMessage"
+              :deleting-id="docDeletingId"
+              :downloading-id="docDownloadingId"
+              :can-delete-doc="canDeleteDocument"
+              @upload-click="triggerFileInput"
+              @file-select="handleFileSelect"
+              @retry="fetchDocuments"
+              @download="downloadDocument"
+              @delete="deleteDocument"
+              @clear-error="docErrorMessage = null"
+            />
+            <input
+              ref="fileInputRef"
+              type="file"
+              @change="handleFileSelect"
+              accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx"
+              class="hidden-file-input"
+            />
           </section>
-
         </div>
       </div>
 
-      <!-- Модалка активации (заказчик) -->
-      <div v-if="showActivateModal" class="modal-overlay" @click.self="showActivateModal = false">
+      <!-- Модалки (активация, редактирование, отклонение) -->
+      <div
+        v-if="showActivateModal"
+        class="modal-overlay"
+        @click.self="showActivateModal = false"
+      >
         <div class="modal-card">
           <h2>Активация объекта</h2>
           <div class="form-field">
             <label>Чек-лист открытия (текст / JSON)</label>
-            <textarea v-model="activateForm.checklist_json" rows="4" :disabled="activateLoading" />
+            <textarea
+              v-model="activateForm.checklist_json"
+              rows="4"
+              :disabled="activateLoading"
+            />
           </div>
           <div class="form-field">
             <label>Путь к файлу акта</label>
@@ -316,28 +418,109 @@
               :disabled="activateLoading"
             />
           </div>
-          <div v-if="activateError" class="state state--error">{{ activateError }}</div>
+          <div v-if="activateError" class="state state--error">
+            {{ activateError }}
+          </div>
           <div class="modal-actions">
-            <button class="action-btn" @click="showActivateModal = false">Отмена</button>
-            <button class="action-btn action-btn--primary" @click="submitActivate" :disabled="activateLoading">
+            <button class="action-btn" @click="showActivateModal = false">
+              Отмена
+            </button>
+            <button
+              class="action-btn action-btn--primary"
+              @click="submitActivate"
+              :disabled="activateLoading"
+            >
               {{ activateLoading ? 'Отправляю...' : 'Отправить на проверку' }}
             </button>
           </div>
         </div>
       </div>
 
+      <div
+        v-if="showEditWorkItemModal"
+        class="modal-overlay"
+        @click.self="closeEditWorkItem"
+      >
+        <div class="modal-card">
+          <h2>Редактирование этапа</h2>
+          <div class="form-field">
+            <label>Название *</label>
+            <input
+              v-model="editWorkItemForm.name"
+              type="text"
+              placeholder="Земляные работы"
+            />
+          </div>
+          <div class="form-field">
+            <label>Описание</label>
+            <textarea
+              v-model="editWorkItemForm.description"
+              rows="3"
+              placeholder="Описание этапа"
+            />
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Плановый объём</label>
+              <input
+                v-model.number="editWorkItemForm.plan_qty"
+                type="number"
+                min="0"
+              />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Дата начала</label>
+              <input v-model="editWorkItemForm.planned_start_date" type="date" />
+            </div>
+            <div class="form-field">
+              <label>Дата окончания</label>
+              <input v-model="editWorkItemForm.planned_end_date" type="date" />
+            </div>
+          </div>
+          <div v-if="editWorkItemError" class="state state--error">
+            {{ editWorkItemError }}
+          </div>
+          <div class="modal-actions">
+            <button class="action-btn" @click="closeEditWorkItem">
+              Отмена
+            </button>
+            <button
+              class="action-btn action-btn--primary"
+              @click="submitEditWorkItem"
+              :disabled="editWorkItemLoading"
+            >
+              {{ editWorkItemLoading ? 'Сохраняю...' : 'Сохранить' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- Модалка отклонения (инспектор) -->
-      <div v-if="showRejectModal" class="modal-overlay" @click.self="showRejectModal = false">
+      <div
+        v-if="showRejectModal"
+        class="modal-overlay"
+        @click.self="showRejectModal = false"
+      >
         <div class="modal-card">
           <h2>Причина отклонения</h2>
           <div class="form-field">
             <label>Укажите причину</label>
             <textarea v-model="rejectReason" rows="3" />
           </div>
-          <div v-if="decisionError" class="state state--error">{{ decisionError }}</div>
+          <div v-if="decisionError" class="state state--error">
+            {{ decisionError }}
+          </div>
           <div class="modal-actions">
-            <button class="action-btn" @click="showRejectModal = false">Отмена</button>
-            <button class="action-btn action-btn--danger" @click="rejectActivation" :disabled="approveLoading">
+            <button class="action-btn" @click="showRejectModal = false">
+              Отмена
+            </button>
+            <button
+              class="action-btn action-btn--danger"
+              @click="rejectActivation"
+              :disabled="approveLoading"
+            >
               {{ approveLoading ? 'Сохраняю...' : 'Отклонить' }}
             </button>
           </div>
@@ -354,6 +537,7 @@ import { useAuthStore } from '../stores/auth'
 import CustomerLayout from './CustomerLayout.vue'
 import InspectorLayout from './InspectorLayout.vue'
 import FrappeGantt from '@/components/FrappeGantt.vue'
+import DocumentManager from '@/components/DocumentManager.vue'
 
 const API_BASE = 'http://localhost:8080'
 const auth = useAuthStore()
@@ -390,8 +574,8 @@ interface ObjectCore {
   init_act_file_path?: string
   init_checklist_json?: string
   activation_reject_reason?: string
-  customer?:  Person
-  foreman?:   Person
+  customer?: Person
+  foreman?: Person
   inspector?: Person
 }
 
@@ -419,32 +603,47 @@ interface Delivery {
   qty: number
 }
 
+interface Document {
+  id: number
+  document_type: string
+  original_file_name: string
+  mime_type: string
+  cv_status: string
+  cv_confidence: number
+  created_at: string
+  uploaded_by: string
+}
+
 interface DetailResponse {
-  object:     ObjectCore
+  object: ObjectCore
   work_items: WorkItem[]
   deliveries: Delivery[]
 }
 
 // ─── Состояние ───────────────────────────────────────────────────────────────
 
-const detail  = ref<DetailResponse | null>(null)
+const detail = ref<DetailResponse | null>(null)
 const loading = ref(true)
-const error   = ref<string | null>(null)
+const error = ref<string | null>(null)
 
-const reportForm    = ref<Record<number, number>>({})
-const submitting    = ref(false)
-const submitError   = ref<string | null>(null)
+const reportForm = ref<Record<number, number>>({})
+const submitting = ref(false)
+const submitError = ref<string | null>(null)
 const submitSuccess = ref<string | null>(null)
 
 const showDeliveryForm = ref(false)
-const deliveryLoading  = ref(false)
-const deliveryError    = ref<string | null>(null)
-const deliveryForm = ref({ material: '', qty: 0, date: new Date().toISOString().slice(0, 10) })
+const deliveryLoading = ref(false)
+const deliveryError = ref<string | null>(null)
+const deliveryForm = ref({
+  material: '',
+  qty: 0,
+  date: new Date().toISOString().slice(0, 10),
+})
 
-// ── Форма добавления этапа (заказчик) ────────────────────────────────────────
+// форма этапа (заказчик)
 const showWorkItemForm = ref(false)
-const workItemLoading  = ref(false)
-const workItemError    = ref<string | null>(null)
+const workItemLoading = ref(false)
+const workItemError = ref<string | null>(null)
 const workItemForm = ref({
   name: '',
   unit: '',
@@ -453,25 +652,57 @@ const workItemForm = ref({
   planned_end_date: '',
 })
 
+// редактирование этапа (заказчик)
+const showEditWorkItemModal = ref(false)
+const editingWorkItemId = ref<number | null>(null)
+const editWorkItemLoading = ref(false)
+const editWorkItemError = ref<string | null>(null)
+const editWorkItemForm = ref({
+  name: '',
+  description: '',
+  unit: '',
+  plan_qty: 0,
+  planned_start_date: '',
+  planned_end_date: '',
+  sort_order: 0,
+  depends_on_id: null as number | null,
+})
+
+// активация
 const showActivateModal = ref(false)
-const activateLoading   = ref(false)
-const activateError     = ref<string | null>(null)
+const activateLoading = ref(false)
+const activateError = ref<string | null>(null)
 const activateForm = ref({ checklist_json: '', act_file_path: '' })
 
+// отклонение инспектором
 const showRejectModal = ref(false)
-const rejectReason    = ref('')
-const approveLoading  = ref(false)
-const decisionError   = ref<string | null>(null)
+const rejectReason = ref('')
+const approveLoading = ref(false)
+const decisionError = ref<string | null>(null)
 
-// ─── Загрузка ────────────────────────────────────────────────────────────────
+// Документы
+const documents = ref<Document[]>([])
+const docLoading = ref(false)
+const docUploading = ref(false)
+const docError = ref<string | null>(null)
+const docErrorMessage = ref<string | null>(null)
+const docDeletingId = ref<number | null>(null)
+const docDownloadingId = ref<number | null>(null)
+const fileInputRef = ref<HTMLInputElement | null>(null)
+
+// ─── Загрузка ───────────────────────────────────────────────────────────────
 
 function endpointForRole() {
   const id = route.params.id
   switch (role.value) {
-    case 'CUSTOMER':  return `${API_BASE}/customer/objects/${id}`
-    case 'FOREMAN':   return `${API_BASE}/foreman/objects/${id}`
-    case 'INSPECTOR': return `${API_BASE}/inspector/objects/${id}`
-    default:          return ''
+    case 'CUSTOMER':
+      return `${API_BASE}/customer/objects/${id}`
+    case 'FOREMAN':
+      return `${API_BASE}/foreman/objects/${id}`
+    case 'INSPECTOR':
+      return `${API_BASE}/inspector/objects/${id}`
+    default:
+      return ''
   }
 }
 
@@ -481,21 +712,235 @@ async function fetchDetail() {
   try {
     const url = endpointForRole()
     if (!url) throw new Error('Неизвестная роль')
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${auth.token}` } })
-    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? 'Ошибка загрузки')
+
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${auth.token}` },
+    })
+    if (!res.ok)
+      throw new Error(
+        (await res.json().catch(() => ({}))).error ?? 'Ошибка загрузки',
+      )
 
     const data = await res.json()
     const obj = data.object ?? data
     detail.value = {
-      object:     obj,
+      object: obj,
       work_items: Array.isArray(data.work_items) ? data.work_items : [],
       deliveries: Array.isArray(data.deliveries) ? data.deliveries : [],
+    }
+    
+    // Загружаем документы после загрузки объекта
+    if (obj.id) {
+      fetchDocuments()
     }
   } catch (e: any) {
     error.value = e.message
   } finally {
     loading.value = false
   }
+}
+
+// ─── Документы ───────────────────────────────────────────────────────────────
+
+const documentsBaseUrl = computed(() => {
+  if (!detail.value?.object.id) return ''
+  return `${API_BASE}/${role.value.toLowerCase()}/objects/${detail.value.object.id}/documents`
+})
+
+async function fetchDocuments() {
+  if (!documentsBaseUrl.value) return
+  
+  docLoading.value = true
+  docError.value = null
+  try {
+    const res = await fetch(documentsBaseUrl.value, {
+      headers: { 
+        Authorization: `Bearer ${auth.token}`,
+        'Content-Type': 'application/json'
+      }
+    })
+    
+    if (!res.ok) {
+      const errorText = await res.text()
+      let errorData = { error: 'Ошибка загрузки документов' }
+      try {
+        errorData = JSON.parse(errorText)
+      } catch {}
+      throw new Error(errorData.error || `Ошибка ${res.status}`)
+    }
+    
+    const data = await res.json()
+    documents.value = Array.isArray(data) ? data : []
+  } catch (e: any) {
+    docError.value = e.message
+    docErrorMessage.value = e.message
+  } finally {
+    docLoading.value = false
+  }
+}
+
+function triggerFileInput() {
+  if (fileInputRef.value) {
+    fileInputRef.value.click()
+  }
+}
+
+async function handleFileSelect(event: Event) {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (!file) return
+
+  // Проверка размера (10MB)
+  const maxSize = 10 * 1024 * 1024
+  if (file.size > maxSize) {
+    docErrorMessage.value = `Файл слишком большой (макс. 10MB). Размер: ${formatFileSize(file.size)}`
+    return
+  }
+
+  // Проверка типа
+  const allowedTypes = [
+    'image/jpeg', 'image/png', 'image/jpg', 'image/gif',
+    'application/pdf',
+    'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  ]
+  if (!allowedTypes.includes(file.type)) {
+    docErrorMessage.value = 'Неподдерживаемый тип файла'
+    return
+  }
+
+  await uploadFile(file)
+  
+  // Очищаем input
+  if (fileInputRef.value) {
+    fileInputRef.value.value = ''
+  }
+}
+
+async function uploadFile(file: File) {
+  if (!documentsBaseUrl.value) return
+  
+  docUploading.value = true
+  docErrorMessage.value = null
+
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('document_type', 'OTHER')
+
+  try {
+    const uploadUrl = `${documentsBaseUrl.value}/upload`
+    
+    const res = await fetch(uploadUrl, {
+      method: 'POST',
+      headers: { 
+        Authorization: `Bearer ${auth.token}`
+      },
+      body: formData
+    })
+
+    if (!res.ok) {
+      const errorText = await res.text()
+      let errorData = { error: 'Ошибка загрузки файла' }
+      try {
+        errorData = JSON.parse(errorText)
+      } catch {}
+      throw new Error(errorData.error || `Ошибка ${res.status}`)
+    }
+
+    // Обновляем список документов
+    await fetchDocuments()
+  } catch (e: any) {
+    docErrorMessage.value = e.message
+  } finally {
+    docUploading.value = false
+  }
+}
+
+async function downloadDocument(doc: Document) {
+  docDownloadingId.value = doc.id
+  docErrorMessage.value = null
+  
+  try {
+    const downloadUrl = `${API_BASE}/${role.value.toLowerCase()}/objects/${detail.value?.object.id}/documents/${doc.id}/download`
+    
+    const res = await fetch(downloadUrl, {
+      headers: { Authorization: `Bearer ${auth.token}` }
+    })
+    
+    if (!res.ok) {
+      throw new Error(`Ошибка скачивания: ${res.status}`)
+    }
+
+    const blob = await res.blob()
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = doc.original_file_name
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+  } catch (e: any) {
+    docErrorMessage.value = `Ошибка скачивания: ${e.message}`
+  } finally {
+    docDownloadingId.value = null
+  }
+}
+
+async function deleteDocument(doc: Document) {
+  if (!confirm(`Удалить документ "${doc.original_file_name}"?`)) {
+    return
+  }
+
+  docDeletingId.value = doc.id
+  docErrorMessage.value = null
+
+  try {
+    const url = `${documentsBaseUrl.value}/${doc.id}`
+    
+    const res = await fetch(url, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${auth.token}` }
+    })
+
+    if (!res.ok) {
+      const errorText = await res.text()
+      let errorData = { error: 'Ошибка удаления' }
+      try {
+        errorData = JSON.parse(errorText)
+      } catch {}
+      throw new Error(errorData.error || `Ошибка ${res.status}`)
+    }
+
+    // Обновляем список
+    documents.value = documents.value.filter(d => d.id !== doc.id)
+  } catch (e: any) {
+    docErrorMessage.value = e.message
+  } finally {
+    docDeletingId.value = null
+  }
+}
+
+function canDeleteDocument(doc: Document) {
+  const currentUserId = auth.user?.id
+  const currentUserName = auth.user?.full_name
+  const currentUserRole = auth.user?.role
+  
+  // Админ может удалять все документы
+  if (currentUserRole === 'admin') {
+    return true
+  }
+  
+  // Пользователь может удалять свои документы
+  return doc.uploaded_by === currentUserName || doc.uploaded_by === String(currentUserId)
+}
+
+function formatFileSize(bytes: number) {
+  if (bytes === 0) return '0 Bytes'
+  const k = 1024
+  const sizes = ['Bytes', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
 }
 
 // ─── Прораб ──────────────────────────────────────────────────────────────────
@@ -509,20 +954,36 @@ async function submitReports() {
       date: new Date().toISOString().slice(0, 10),
     }))
 
-  if (!reports.length) { submitError.value = 'Заполните хотя бы одну строку'; return }
+  if (!reports.length) {
+    submitError.value = 'Заполните хотя бы одну строку'
+    return
+  }
 
-  submitting.value = true; submitError.value = null; submitSuccess.value = null
+  submitting.value = true
+  submitError.value = null
+  submitSuccess.value = null
   try {
-    const res = await fetch(`${API_BASE}/foreman/objects/${route.params.id}/work-reports`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
-      body: JSON.stringify({ reports }),
-    })
-    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? 'Ошибка')
+    const res = await fetch(
+      `${API_BASE}/foreman/objects/${route.params.id}/work-reports`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${auth.token}`,
+        },
+        body: JSON.stringify({ reports }),
+      },
+    )
+    if (!res.ok)
+      throw new Error(
+        (await res.json().catch(() => ({}))).error ?? 'Ошибка',
+      )
     reportForm.value = {}
     submitSuccess.value = 'Отчёт сохранён'
     await fetchDetail()
-    setTimeout(() => { submitSuccess.value = null }, 3000)
+    setTimeout(() => {
+      submitSuccess.value = null
+    }, 3000)
   } catch (e: any) {
     submitError.value = e.message
   } finally {
@@ -531,19 +992,39 @@ async function submitReports() {
 }
 
 async function submitDelivery() {
-  if (!deliveryForm.value.material.trim()) { deliveryError.value = 'Укажите материал'; return }
-  if (!deliveryForm.value.qty || deliveryForm.value.qty <= 0) { deliveryError.value = 'Укажите количество'; return }
+  if (!deliveryForm.value.material.trim()) {
+    deliveryError.value = 'Укажите материал'
+    return
+  }
+  if (!deliveryForm.value.qty || deliveryForm.value.qty <= 0) {
+    deliveryError.value = 'Укажите количество'
+    return
+  }
 
-  deliveryLoading.value = true; deliveryError.value = null
+  deliveryLoading.value = true
+  deliveryError.value = null
   try {
-    const res = await fetch(`${API_BASE}/foreman/objects/${route.params.id}/deliveries`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
-      body: JSON.stringify(deliveryForm.value),
-    })
-    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? 'Ошибка')
+    const res = await fetch(
+      `${API_BASE}/foreman/objects/${route.params.id}/deliveries`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${auth.token}`,
+        },
+        body: JSON.stringify(deliveryForm.value),
+      },
+    )
+    if (!res.ok)
+      throw new Error(
+        (await res.json().catch(() => ({}))).error ?? 'Ошибка',
+      )
     showDeliveryForm.value = false
-    deliveryForm.value = { material: '', qty: 0, date: new Date().toISOString().slice(0, 10) }
+    deliveryForm.value = {
+      material: '',
+      qty: 0,
+      date: new Date().toISOString().slice(0, 10),
+    }
     await fetchDetail()
   } catch (e: any) {
     deliveryError.value = e.message
@@ -552,7 +1033,7 @@ async function submitDelivery() {
   }
 }
 
-// ─── Заказчик: добавление этапа ──────────────────────────────────────────────
+// ─── Заказчик: этапы ─────────────────────────────────────────────────────────
 
 async function submitWorkItem() {
   if (!workItemForm.value.name.trim()) {
@@ -564,29 +1045,43 @@ async function submitWorkItem() {
   workItemError.value = null
   try {
     const body: Record<string, any> = {
-      name:     workItemForm.value.name,
-      unit:     workItemForm.value.unit,
+      name: workItemForm.value.name,
+      unit: workItemForm.value.unit,
       plan_qty: workItemForm.value.plan_qty,
     }
-    // Даты передаём только если заполнены — иначе бэк получит пустую строку
     if (workItemForm.value.planned_start_date)
-      body.planned_start_date = new Date(workItemForm.value.planned_start_date).toISOString()
+      body.planned_start_date = new Date(
+        workItemForm.value.planned_start_date,
+      ).toISOString()
     if (workItemForm.value.planned_end_date)
-      body.planned_end_date = new Date(workItemForm.value.planned_end_date).toISOString()
+      body.planned_end_date = new Date(
+        workItemForm.value.planned_end_date,
+      ).toISOString()
 
     const res = await fetch(
       `${API_BASE}/customer/objects/${route.params.id}/work-items`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${auth.token}`,
+        },
         body: JSON.stringify(body),
-      }
+      },
     )
-    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? 'Ошибка')
+    if (!res.ok)
+      throw new Error(
+        (await res.json().catch(() => ({}))).error ?? 'Ошибка',
+      )
 
-    // Сбрасываем форму и перезагружаем — Гантт и таблица обновятся сами
     showWorkItemForm.value = false
-    workItemForm.value = { name: '', unit: '', plan_qty: 0, planned_start_date: '', planned_end_date: '' }
+    workItemForm.value = {
+      name: '',
+      unit: '',
+      plan_qty: 0,
+      planned_start_date: '',
+      planned_end_date: '',
+    }
     await fetchDetail()
   } catch (e: any) {
     workItemError.value = e.message
@@ -595,22 +1090,134 @@ async function submitWorkItem() {
   }
 }
 
+async function openEditWorkItem(item: WorkItem) {
+  editingWorkItemId.value = item.id
+  editWorkItemForm.value = {
+    name: item.name,
+    description: item.description || '',
+    unit: item.unit || '',
+    plan_qty: item.plan_qty,
+    planned_start_date: item.planned_start_date ? item.planned_start_date.slice(0, 10) : '',
+    planned_end_date: item.planned_end_date ? item.planned_end_date.slice(0, 10) : '',
+    sort_order: item.sort_order,
+    depends_on_id: item.depends_on_id || null,
+  }
+  editWorkItemError.value = null
+  showEditWorkItemModal.value = true
+}
+
+async function submitEditWorkItem() {
+  if (!editWorkItemForm.value.name.trim()) {
+    editWorkItemError.value = 'Укажите название этапа'
+    return
+  }
+  if (!editingWorkItemId.value) return
+
+  editWorkItemLoading.value = true
+  editWorkItemError.value = null
+  try {
+    const body: Record<string, any> = {
+      name: editWorkItemForm.value.name,
+      description: editWorkItemForm.value.description,
+      unit: editWorkItemForm.value.unit,
+      plan_qty: editWorkItemForm.value.plan_qty,
+      sort_order: editWorkItemForm.value.sort_order,
+      depends_on_id: editWorkItemForm.value.depends_on_id,
+    }
+    if (editWorkItemForm.value.planned_start_date)
+      body.planned_start_date = new Date(
+        editWorkItemForm.value.planned_start_date,
+      ).toISOString()
+    if (editWorkItemForm.value.planned_end_date)
+      body.planned_end_date = new Date(
+        editWorkItemForm.value.planned_end_date,
+      ).toISOString()
+
+    const res = await fetch(
+      `${API_BASE}/customer/objects/${route.params.id}/work-items/${editingWorkItemId.value}`,
+      {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${auth.token}`,
+        },
+        body: JSON.stringify(body),
+      },
+    )
+    if (!res.ok)
+      throw new Error(
+        (await res.json().catch(() => ({}))).error ?? 'Ошибка',
+      )
+
+    showEditWorkItemModal.value = false
+    editingWorkItemId.value = null
+    await fetchDetail()
+  } catch (e: any) {
+    editWorkItemError.value = e.message
+  } finally {
+    editWorkItemLoading.value = false
+  }
+}
+
+function closeEditWorkItem() {
+  showEditWorkItemModal.value = false
+  editingWorkItemId.value = null
+  editWorkItemError.value = null
+}
+
+async function deleteWorkItem(itemId: number) {
+  if (!confirm('Вы уверены, что хотите удалить этот этап?')) return
+
+  try {
+    const res = await fetch(
+      `${API_BASE}/customer/objects/${route.params.id}/work-items/${itemId}`,
+      {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${auth.token}`,
+        },
+      },
+    )
+    if (!res.ok)
+      throw new Error(
+        (await res.json().catch(() => ({}))).error ?? 'Ошибка',
+      )
+
+    await fetchDetail()
+  } catch (e: any) {
+    alert(e.message || 'Ошибка при удалении')
+  }
+}
+
 // ─── Заказчик: активация ─────────────────────────────────────────────────────
 
 async function submitActivate() {
-  if (!activateForm.value.checklist_json.trim()) { activateError.value = 'Заполните чек-лист'; return }
+  if (!activateForm.value.checklist_json.trim()) {
+    activateError.value = 'Заполните чек-лист'
+    return
+  }
 
-  activateLoading.value = true; activateError.value = null
+  activateLoading.value = true
+  activateError.value = null
   try {
-    const res = await fetch(`${API_BASE}/customer/objects/${route.params.id}/activate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
-      body: JSON.stringify({
-        checklist_json: activateForm.value.checklist_json,
-        act_file_path: activateForm.value.act_file_path || undefined,
-      }),
-    })
-    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? 'Ошибка')
+    const res = await fetch(
+      `${API_BASE}/customer/objects/${route.params.id}/activate`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${auth.token}`,
+        },
+        body: JSON.stringify({
+          checklist_json: activateForm.value.checklist_json,
+          act_file_path: activateForm.value.act_file_path || undefined,
+        }),
+      },
+    )
+    if (!res.ok)
+      throw new Error(
+        (await res.json().catch(() => ({}))).error ?? 'Ошибка',
+      )
     showActivateModal.value = false
     await fetchDetail()
   } catch (e: any) {
@@ -622,15 +1229,28 @@ async function submitActivate() {
 
 // ─── Инспектор ───────────────────────────────────────────────────────────────
 
-async function sendDecision(decision: 'APPROVE' | 'REJECT', rejection_reason = '') {
-  approveLoading.value = true; decisionError.value = null
+async function sendDecision(
+  decision: 'APPROVE' | 'REJECT',
+  rejection_reason = '',
+) {
+  approveLoading.value = true
+  decisionError.value = null
   try {
-    const res = await fetch(`${API_BASE}/inspector/objects/${route.params.id}/activation-decision`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
-      body: JSON.stringify({ decision, rejection_reason }),
-    })
-    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? 'Ошибка')
+    const res = await fetch(
+      `${API_BASE}/inspector/objects/${route.params.id}/activation-decision`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${auth.token}`,
+        },
+        body: JSON.stringify({ decision, rejection_reason }),
+      },
+    )
+    if (!res.ok)
+      throw new Error(
+        (await res.json().catch(() => ({}))).error ?? 'Ошибка',
+      )
     showRejectModal.value = false
     rejectReason.value = ''
     await fetchDetail()
@@ -641,9 +1261,15 @@ async function sendDecision(decision: 'APPROVE' | 'REJECT', rejection_reason = '
   }
 }
 
-async function approveActivation() { await sendDecision('APPROVE') }
+async function approveActivation() {
+  await sendDecision('APPROVE')
+}
+
 async function rejectActivation() {
-  if (!rejectReason.value.trim()) { decisionError.value = 'Укажите причину'; return }
+  if (!rejectReason.value.trim()) {
+    decisionError.value = 'Укажите причину'
+    return
+  }
   await sendDecision('REJECT', rejectReason.value.trim())
 }
 
@@ -655,8 +1281,11 @@ function fmtDate(v?: string | null) {
 }
 
 function fmtChecklist(json: string) {
-  try { return JSON.stringify(JSON.parse(json), null, 2) }
-  catch { return json }
+  try {
+    return JSON.stringify(JSON.parse(json), null, 2)
+  } catch {
+    return json
+  }
 }
 
 function statusLabel(s: ObjStatus) {
@@ -671,18 +1300,24 @@ function statusLabel(s: ObjStatus) {
 
 function statusClass(s: ObjStatus) {
   return {
-    'status-chip--planned':  s === 'PLANNED',
-    'status-chip--waiting':  s === 'WAITING_INSPECTOR_CONFIRMATION',
-    'status-chip--active':   s === 'ACTIVE',
+    'status-chip--planned': s === 'PLANNED',
+    'status-chip--waiting': s === 'WAITING_INSPECTOR_CONFIRMATION',
+    'status-chip--active': s === 'ACTIVE',
     'status-chip--finished': s === 'FINISHED',
   }
 }
 
 function goBack() {
   switch (role.value) {
-    case 'CUSTOMER':  router.push({ name: 'customer-objects' }); break
-    case 'FOREMAN':   router.push({ name: 'foreman-objects' }); break
-    case 'INSPECTOR': router.push({ name: 'inspector-objects' }); break
+    case 'CUSTOMER':
+      router.push({ name: 'customer-objects' })
+      break
+    case 'FOREMAN':
+      router.push({ name: 'foreman-objects' })
+      break
+    case 'INSPECTOR':
+      router.push({ name: 'inspector-objects' })
+      break
   }
 }
 
@@ -695,23 +1330,78 @@ onMounted(fetchDetail)
 
 // ─── Гантт ───────────────────────────────────────────────────────────────────
 
-// Frappe Gantt ожидает даты в формате 'YYYY-MM-DD'
+type GanttTask = {
+  id: string
+  name: string
+  start: string
+  end: string
+  progress: number
+}
+
 function toYMD(dateStr?: string | null): string {
   if (!dateStr) return ''
   return new Date(dateStr).toISOString().slice(0, 10)
 }
 
-// Преобразуем наши WorkItem в формат Frappe Gantt
-const ganttTasks = computed(() =>
+function getActualDateRange(item: WorkItem) {
+  const start = item.actual_start_date ?? item.planned_start_date ?? null
+  let end = item.actual_end_date ?? item.planned_end_date ?? null
+
+  if (
+    !item.actual_end_date &&
+    item.planned_end_date &&
+    (item.status === 'IN_PROGRESS' || item.status === 'DELAYED')
+  ) {
+    const today = new Date()
+    const plannedEnd = new Date(item.planned_end_date)
+
+    if (plannedEnd < today) {
+      end = today.toISOString()
+    }
+  }
+
+  return { start, end }
+}
+
+const ganttViewMode = computed<'Day' | 'Week' | 'Month'>(() => {
+  const items = detail.value?.work_items ?? []
+  if (!items.length) return 'Week'
+
+  const ranges = items
+    .map(getActualDateRange)
+    .filter(
+      (r): r is { start: string; end: string } => Boolean(r.start && r.end),
+    )
+
+  if (!ranges.length) return 'Week'
+
+  const starts = ranges.map(r => new Date(r.start).getTime())
+  const ends = ranges.map(r => new Date(r.end).getTime())
+
+  const minStart = Math.min(...starts)
+  const maxEnd = Math.max(...ends)
+  const diffDays = Math.ceil((maxEnd - minStart) / (1000 * 60 * 60 * 24))
+
+  if (diffDays <= 31) return 'Day'
+  if (diffDays <= 90) return 'Week'
+  return 'Month'
+})
+
+const ganttTasks = computed<GanttTask[]>(() =>
   (detail.value?.work_items ?? [])
-    .filter(i => i.planned_start_date && i.planned_end_date)
-    .map(i => ({
-      id:       String(i.id),
-      name:     i.name,
-      start:    toYMD(i.planned_start_date),
-      end:      toYMD(i.planned_end_date),
-      progress: Math.round(i.progress ?? 0),
-    }))
+    .map((i): GanttTask | null => {
+      const { start, end } = getActualDateRange(i)
+      if (!start || !end) return null
+
+      return {
+        id: String(i.id),
+        name: i.name,
+        start: toYMD(start),
+        end: toYMD(end),
+        progress: Math.round(i.progress ?? 0),
+      }
+    })
+    .filter((task): task is GanttTask => task !== null)
 )
 </script>
 
@@ -821,6 +1511,41 @@ const ganttTasks = computed(() =>
   border: 1px solid #d1d5db; font-size: 14px; text-align: right;
 }
 
+.td-actions {
+  display: flex;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.icon-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.icon-btn:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.icon-btn--edit:hover {
+  background: #eff6ff;
+  border-color: #3b82f6;
+}
+
+.icon-btn--delete:hover {
+  background: #fef2f2;
+  border-color: #ef4444;
+}
+
 .work-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
 .work-actions .action-btn { width: auto; padding: 8px 20px; border-radius: 999px; }
 
@@ -836,21 +1561,16 @@ const ganttTasks = computed(() =>
   border: 1px solid #d1d5db; font-size: 14px; background: #fff;
 }
 
-.docs-list { display: flex; flex-direction: column; gap: 10px; }
-.doc-item {
-  display: flex; align-items: flex-start; gap: 12px;
-  padding: 10px 12px; border-radius: 10px;
-  border: 1px solid #e5e7eb; background: #f9fafb;
-}
-.doc-icon { font-size: 22px; flex-shrink: 0; }
-.doc-info { display: flex; flex-direction: column; gap: 2px; }
-.doc-name { font-size: 14px; font-weight: 500; color: #111827; }
-.doc-path { font-size: 12px; color: #6b7280; font-family: monospace; }
-.doc-details summary { font-size: 12px; color: #4f46e5; cursor: pointer; margin-top: 4px; }
-.doc-pre {
-  margin-top: 8px; padding: 8px; background: #f3f4f6;
-  border-radius: 6px; font-size: 12px; white-space: pre-wrap;
-  max-height: 200px; overflow-y: auto;
+.hidden-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .status-chip { padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 500; white-space: nowrap; }
@@ -867,55 +1587,6 @@ const ganttTasks = computed(() =>
   position: fixed; inset: 0; background: rgba(15,23,42,0.55);
   display: flex; justify-content: center; align-items: center;
   padding: 16px; z-index: 50;
-}
-
-/* ── Гантт ── */
-.gantt-wrap { overflow-x: auto; }
-
-.gantt-row {
-  display: grid;
-  grid-template-columns: 180px 1fr;
-  align-items: center;
-  min-height: 38px;
-  border-bottom: 1px solid #f3f4f6;
-}
-.gantt-row:last-child { border-bottom: none; }
-
-.gantt-label {
-  font-size: 13px; color: #374151;
-  padding: 4px 10px 4px 0;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-
-.gantt-timeline {
-  position: relative; height: 26px;
-  background: #f9fafb; border-radius: 6px;
-}
-
-.gantt-bar {
-  position: absolute; top: 0; height: 100%;
-  border-radius: 6px; display: flex; align-items: center;
-  padding: 0 6px; overflow: hidden; white-space: nowrap;
-}
-
-.gantt-bar-label { font-size: 11px; font-weight: 500; }
-
-.gantt-bar--planned     { background: #e0e7ff; color: #3730a3; }
-.gantt-bar--in_progress { background: #d1fae5; color: #065f46; }
-.gantt-bar--done        { background: #bbf7d0; color: #14532d; }
-.gantt-bar--delayed     { background: #fee2e2; color: #991b1b; }
-
-.gantt-bar--actual {
-  background: rgba(79, 70, 229, 0.15);
-  border: 1.5px solid #4f46e5;
-  z-index: 1;
-}
-
-.gantt-placeholder {
-  height: 100px; border-radius: 10px;
-  border: 2px dashed #e5e7eb; background: #f9fafb;
-  display: flex; align-items: center;
-  justify-content: center; color: #9ca3af; font-size: 14px;
 }
 
 .modal-card {
@@ -936,6 +1607,13 @@ const ganttTasks = computed(() =>
 }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
 .modal-actions .action-btn { width: auto; padding: 8px 20px; border-radius: 999px; }
+
+.gantt-placeholder {
+  height: 100px; border-radius: 10px;
+  border: 2px dashed #e5e7eb; background: #f9fafb;
+  display: flex; align-items: center;
+  justify-content: center; color: #9ca3af; font-size: 14px;
+}
 
 @media (max-width: 900px) {
   .detail-body { grid-template-columns: 1fr; }
