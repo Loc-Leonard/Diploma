@@ -2,7 +2,6 @@ Learning CV/agent/*.md
 Learning CV/dataset
 *cache*
 output*
-storage/
 .gocache/
 .gomodcache/
 .gotelemetry/

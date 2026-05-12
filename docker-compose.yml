@@ -41,6 +41,8 @@ services:
     networks:
       - backend-net
     restart: unless-stopped
+    mem_limit: 512m
+    cpus: 0.2
 
   cv-agent:
     build:
@@ -51,6 +53,8 @@ services:
     networks:
       - backend-net
     restart: unless-stopped
+    mem_limit: 512m
+    cpus: 0.2
   
   postgres:
     image: postgres:16
@@ -72,6 +76,8 @@ services:
     networks:
       - backend-net
     restart: unless-stopped
+    mem_limit: 512m
+    cpus: 0.2
 
 networks:
   backend-net:

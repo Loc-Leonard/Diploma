@@ -861,7 +861,7 @@ async function downloadDocument(doc: Document) {
   docErrorMessage.value = null
   
   try {
-    const downloadUrl = `${API_BASE}/${role.value}/objects/${detail.value?.object.id}/documents/${doc.id}/download`
+    const downloadUrl = `${API_BASE}/${role.value.toLowerCase()}/objects/${detail.value?.object.id}/documents/${doc.id}/download`
     
     const res = await fetch(downloadUrl, {
       headers: { Authorization: `Bearer ${auth.token}` }

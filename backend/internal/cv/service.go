@@ -87,7 +87,6 @@ func (p HTTPProcessor) ProcessFile(ctx context.Context, filePath string, origina
 	}
 	defer response.Body.Close()
 
-	var result FileProcessResult
 	responseBytes, err := io.ReadAll(response.Body)
 	if err != nil {
 		return nil, fmt.Errorf("read cv response: %w", err)
@@ -95,9 +94,14 @@ func (p HTTPProcessor) ProcessFile(ctx context.Context, filePath string, origina
 	if response.StatusCode >= 400 {
 		return nil, fmt.Errorf("cv service returned %d: %s", response.StatusCode, string(responseBytes))
 	}
+
+	var result FileProcessResult
 	if err := json.Unmarshal(responseBytes, &result); err != nil {
 		return nil, fmt.Errorf("decode cv response: %w", err)
 	}
-	result.RawJSON = append(result.RawJSON[:0], responseBytes...)
+
+	// FIX: Правильно сохраняем RawJSON
+	result.RawJSON = responseBytes
+
 	return &result, nil
 }
