@@ -19,6 +19,9 @@ type InspectorObjectStatus =
     foreman_name: string
     planned_start_date?: string | null
     has_pending_action: boolean
+    lat: number
+    lng: number
+    progress: number
   }
 
 export const useInspectorNotificationsStore = defineStore('inspectorNotifications', () => {

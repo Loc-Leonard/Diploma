@@ -68,10 +68,10 @@
               <div class="progress-bar">
                 <div
                   class="progress-bar-fill"
-                  :style="{ width: obj.progress + '%' }"
+                  :style="{ width: `${normalizedProgress(obj.progress)}%` }"
                 ></div>
               </div>
-              <span class="progress-text">{{ obj.progress }}%</span>
+              <span class="progress-text">{{ normalizedProgress(obj.progress) }}%</span>
             </div>
 
             <div class="object-people">
@@ -147,7 +147,12 @@
           <h2>Объекты на карте</h2>
           <button class="close-btn" @click="showMap = false">✕</button>
         </div>
-        <div class="map-placeholder">
+        <AppMap
+          v-if="mapMarkers.length"
+          :markers="mapMarkers"
+          height="420px"
+        />
+        <div v-else class="map-placeholder">
           <div class="map-placeholder-inner">
             <span class="map-icon">🗺</span>
             <span>Здесь будет карта с объектами</span>
@@ -164,6 +169,9 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import CustomerLayout from './CustomerLayout.vue'
+import AppMap from '@/components/AppMap.vue'
+
+
 
 const API_BASE = 'http://localhost:8080'
 
@@ -182,6 +190,27 @@ const greeting = computed(() => {
   const name = auth.user?.full_name
   return name ? `Добрый день, ${name}` : 'Добрый день'
 })
+
+function normalizedProgress(value?: number | null) {
+  if (typeof value !== 'number' || Number.isNaN(value)) return 0
+  return Math.min(100, Math.max(0, Math.round(value)))
+}
+
+const mapMarkers = computed(() =>
+  objects.value
+    .filter(
+      (o) =>
+        Number.isFinite(o.lat) &&
+        Number.isFinite(o.lng) &&
+        !(o.lat === 0 && o.lng === 0),
+    )
+    .map((o) => ({
+      lat: o.lat,
+      lng: o.lng,
+      title: o.name,
+      subtitle: `${o.city}, ${o.address}`,
+    })),
+)
 
 type DashboardObjectStatus =
   | 'PLANNED'

@@ -3,6 +3,8 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import ForemanLayout from './ForemanLayout.vue'
+import AppMap from '@/components/AppMap.vue'
+
 
 const API_BASE = 'http://localhost:8080'
 
@@ -21,6 +23,9 @@ type ForemanObject = {
   city: string
   address: string
   status: ForemanObjectStatus
+  lat: number
+  lng: number
+  progress: number
 }
 
 const objects = ref<ForemanObject[]>([])
@@ -112,6 +117,12 @@ function goToObject(id: number) {
   router.push({ name: 'foreman-object', params: { id } })
 }
 
+const mapMarkers = computed (() =>
+  objects.value
+    .filter((o) => Number.isFinite(o.lat) && Number.isFinite(o.lng) && !(o.lat === 0 && o.lng === 0))
+    .map((o) => ({ lat: o.lat, lng: o.lng, title: o.name, subtitle: `${o.city}, ${o.address}` }))
+)
+
 onMounted(loadObjects)
 </script>
 
@@ -201,11 +212,15 @@ onMounted(loadObjects)
           <h2>Объекты на карте</h2>
           <button class="close-btn" @click="showMap = false">✕</button>
         </div>
-
-        <div class="map-placeholder">
+        <AppMap 
+          v-if="mapMarkers.length" 
+          :markers="mapMarkers" 
+          height="420px"
+        />
+        <div v-else class="map-placeholder">
           <div class="map-placeholder-inner">
             <span class="map-icon">🗺</span>
-            <span>Здесь будет карта с объектами</span>
+            <span>Нет объектов для отображения</span>
             <span class="map-hint">{{ objects.length }} объект(ов) для отображения</span>
           </div>
         </div>
