@@ -210,6 +210,7 @@
                     <th>Наименование</th>
                     <th>Ед.</th>
                     <th>План</th>
+                    <th>progress</th>
                     <th v-if="role === 'CUSTOMER'">Действия</th>
                     <th v-if="role === 'FOREMAN'">Факт (сегодня)</th>
                   </tr>
@@ -222,6 +223,19 @@
                     <td>{{ item.name }}</td>
                     <td class="td-unit">{{ item.unit }}</td>
                     <td class="td-plan">{{ item.plan_qty }}</td>
+                    <td class="td-progress">
+                      <div class="progress-cell">
+                        <div class="progress-track">
+                          <div
+                            class="progress-fill"
+                            :style="{ width: `${Math.max(0, Math.min(100, Number(item.progress ?? 0)))}%` }"
+                          ></div>
+                        </div>
+                        <span class="progress-value">
+                          {{ Math.round(Number(item.progress ?? 0)) }}%
+                        </span>
+                      </div>
+                    </td>
                     <td v-if="role === 'CUSTOMER'" class="td-actions">
                       <button
                         class="icon-btn icon-btn--edit"
