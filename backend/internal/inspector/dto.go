@@ -40,6 +40,9 @@ type InspectorObjectListItem struct {
 	ForemanName      string              `json:"foreman_name"`
 	PlannedStartDate *time.Time          `json:"planned_start_date"`
 	HasPendingAction bool                `json:"has_pending_action"`
+	Lat              float64             `json:"lat"`
+	Lng              float64             `json:"lng"`
+	Progress         float64             `json:"progress"`
 }
 
 // PersonDTO - DTO персоны
@@ -58,8 +61,8 @@ type ObjectDTO struct {
 	Status                 models.ObjectStatus `json:"status"`
 	Lat                    float64             `json:"lat"`
 	Lng                    float64             `json:"lng"`
-	PlannedStartDate       *time.Time          `json:"planned_start_date"`
-	PlannedEndDate         *time.Time          `json:"planned_end_date"`
+	PlannedStartDate       time.Time           `json:"planned_start_date"`
+	PlannedEndDate         time.Time           `json:"planned_end_date"`
 	ActualStartDate        *time.Time          `json:"actual_start_date"`
 	Customer               *PersonDTO          `json:"customer,omitempty"`
 	Foreman                *PersonDTO          `json:"foreman,omitempty"`

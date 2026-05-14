@@ -28,8 +28,8 @@ type Object struct {
 	ForemanUserID         uint `json:"foreman_user_id"`
 	InspectorUserID       uint `json:"inspector_user_id"`
 
-	PlannedStartDate *time.Time `json:"planned_start_date"`
-	PlannedEndDate   *time.Time `json:"planned_end_date"`
+	PlannedStartDate time.Time  `json:"planned_start_date"`
+	PlannedEndDate   time.Time  `json:"planned_end_date"`
 	ActualStartDate  *time.Time `json:"actual_start_date"`
 	ActualEndDate    *time.Time `json:"actual_end_date"`
 
@@ -43,4 +43,6 @@ type Object struct {
 	UpdatedAt time.Time `json:"updated_at"`
 
 	Progress float64 `json:"progress" gorm:"default:0"`
+
+	PolygonJSON string `json:"polygon_json"`
 }

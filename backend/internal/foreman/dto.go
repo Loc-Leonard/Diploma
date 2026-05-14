@@ -12,8 +12,11 @@ type ForemanObjectDTO struct {
 	City             string              `json:"city"`
 	Address          string              `json:"address"`
 	Status           models.ObjectStatus `json:"status"`
-	PlannedStartDate *time.Time          `json:"planned_start_date"`
-	PlannedEndDate   *time.Time          `json:"planned_end_date"`
+	PlannedStartDate time.Time           `json:"planned_start_date"`
+	PlannedEndDate   time.Time           `json:"planned_end_date"`
+	Lng              float64             `json:"lng"`
+	Lat              float64             `json:"lat"`
+	Progress         float64             `json:"progress"`
 }
 
 type WorkItemDTO struct {
@@ -77,8 +80,8 @@ type ObjectDTO struct {
 	Status           models.ObjectStatus `json:"status"`
 	Lat              float64             `json:"lat"`
 	Lng              float64             `json:"lng"`
-	PlannedStartDate *time.Time          `json:"planned_start_date"`
-	PlannedEndDate   *time.Time          `json:"planned_end_date"`
+	PlannedStartDate time.Time           `json:"planned_start_date"`
+	PlannedEndDate   time.Time           `json:"planned_end_date"`
 	ActualStartDate  *time.Time          `json:"actual_start_date"`
 	Customer         *PersonDTO          `json:"customer,omitempty"`
 	Foreman          *PersonDTO          `json:"foreman,omitempty"`

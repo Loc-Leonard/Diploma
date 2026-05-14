@@ -21,6 +21,7 @@ const (
 
 type MaterialDocument struct {
 	ID               uint                 `gorm:"primaryKey" json:"id"`
+	ObjectID         uint                 `json:"object_id"`
 	DeliveryID       *uint                `json:"delivery_id"`
 	UploadedBy       *uint                `json:"uploaded_by,omitempty"`
 	DocumentType     MaterialDocumentType `json:"document_type"`

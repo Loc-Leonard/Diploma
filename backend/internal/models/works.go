@@ -19,6 +19,13 @@ type WorkReport struct {
 	Qty        float64          `json:"qty"`
 	Status     WorkReportStatus `json:"status"`
 	Comment    string           `json:"comment"`
+
+	VerifiedBy      *uint      `json:"verified_by,omitempty"`
+	VerifiedAt      *time.Time `json:"verified_at,omitempty"`
+	RejectionReason string     `json:"rejection_reason,omitempty"`
+
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // Поставка материала (упрощённо)

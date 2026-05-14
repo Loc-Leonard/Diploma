@@ -118,6 +118,7 @@ func (h *Handler) checkAccess(userID uint, doc models.MaterialDocument) bool {
 			var obj models.Object
 			if err := h.db.First(&obj, delivery.ObjectID).Error; err == nil {
 				if obj.CustomerControlUserID == userID ||
+					obj.ForemanUserID == userID ||
 					obj.InspectorUserID == userID {
 					return true
 				}
@@ -148,7 +149,7 @@ func (h *Handler) checkAccess(userID uint, doc models.MaterialDocument) bool {
 
 	// 4. Проверяем администратора
 	var user models.User
-	if err := h.db.First(&user, userID).Error; err == nil {
+	if err := h.db.First(&user, userID).Error; err == nil && user.Role == models.RoleAdmin {
 		if user.Role == models.RoleAdmin {
 			return true
 		}

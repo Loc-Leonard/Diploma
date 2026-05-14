@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -18,6 +19,7 @@ import (
 	"github.com/Loc-Leonard/Diploma/backend/internal/auth"
 	"github.com/Loc-Leonard/Diploma/backend/internal/cv"
 	"github.com/Loc-Leonard/Diploma/backend/internal/models"
+	"github.com/Loc-Leonard/Diploma/backend/internal/objectcore"
 )
 
 type Handler struct {
@@ -79,6 +81,9 @@ func (h *Handler) ObjectsList(c *gin.Context) {
 			City:             o.City,
 			Address:          o.Address,
 			Status:           o.Status,
+			Lat:              o.Lat,
+			Lng:              o.Lng,
+			Progress:         objectcore.CalcProgress(h.db, o.ID),
 			PlannedStartDate: o.PlannedStartDate,
 			PlannedEndDate:   o.PlannedEndDate,
 		})
@@ -592,4 +597,44 @@ func (h *Handler) DeleteDocument(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"status": "deleted"})
+}
+
+func recalcProgress(db *gorm.DB, objectID uint) error {
+	var items []models.WorkItem
+	db.Where("object_id = ?", objectID).Find(&items)
+	if len(items) == 0 {
+		return nil
+	}
+
+	totalPlan := 0.0
+	totalFact := 0.0
+
+	for _, item := range items {
+		var factQty float64
+		db.Model(&models.WorkReport{}).
+			Where("work_item_id = ?", item.ID).
+			Select("COALESCE(SUM(qty), 0)").
+			Scan(&factQty)
+
+		itemProgress := 0.0
+		if item.PlanQty > 0 {
+			itemProgress = math.Min(factQty/item.PlanQty*100, 100)
+		}
+
+		db.Model(&models.WorkItem{}).
+			Where("id = ?", item.ID).
+			Update("progress", itemProgress)
+
+		totalPlan += item.PlanQty
+		totalFact += factQty
+	}
+
+	objectProgress := 0.0
+	if totalPlan > 0 {
+		objectProgress = math.Min(totalFact/totalPlan*100, 100)
+	}
+
+	return db.Model(&models.Object{}).
+		Where("id = ?", objectID).
+		Update("progress", objectProgress).Error
 }

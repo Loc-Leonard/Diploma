@@ -19,6 +19,8 @@ func LoadObjectForUser(db *gorm.DB, objectID string, userID uint, role string) (
 	}
 
 	switch role {
+	case string(models.RoleAdmin):
+		return &obj, nil
 	case string(models.RoleCustomer):
 		if obj.CustomerControlUserID != userID {
 			return nil, ErrForbidden

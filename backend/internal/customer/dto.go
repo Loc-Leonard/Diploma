@@ -18,11 +18,11 @@ type DashboardObjectDTO struct {
 		ID       uint   `json:"id"`
 		FullName string `json:"full_name"`
 	} `json:"foreman,omitempty"`
-	PlannedStartDate       *time.Time `json:"planned_start_date"`
-	PlannedEndDate         *time.Time `json:"planned_end_date"`
-	Lat                    float64    `json:"lat"`
-	Lng                    float64    `json:"lng"`
-	ActivationRejectReason string     `json:"activation_reject_reason"`
+	PlannedStartDate       time.Time `json:"planned_start_date"`
+	PlannedEndDate         time.Time `json:"planned_end_date"`
+	Lat                    float64   `json:"lat"`
+	Lng                    float64   `json:"lng"`
+	ActivationRejectReason string    `json:"activation_reject_reason"`
 }
 
 // DashboardForemanDTO - DTO прораба для дашборда
@@ -38,16 +38,16 @@ type DashboardForemanDTO struct {
 
 // CreateObjectRequest - DTO для создания объекта
 type CreateObjectRequest struct {
-	Name             string     `json:"name" binding:"required"`
-	Address          string     `json:"address" binding:"required"`
-	City             string     `json:"city" binding:"required"`
-	Description      string     `json:"description"`
-	Lat              float64    `json:"lat"`
-	Lng              float64    `json:"lng"`
-	PlannedStartDate *time.Time `json:"planned_start_date"`
-	PlannedEndDate   *time.Time `json:"planned_end_date"`
-	ForemanUserID    uint       `json:"foreman_user_id" binding:"required"`
-	InspectorUserID  uint       `json:"inspector_user_id" binding:"required"`
+	Name             string    `json:"name" binding:"required"`
+	Address          string    `json:"address" binding:"required"`
+	City             string    `json:"city" binding:"required"`
+	Description      string    `json:"description"`
+	Lat              float64   `json:"lat"`
+	Lng              float64   `json:"lng"`
+	PlannedStartDate time.Time `json:"planned_start_date"`
+	PlannedEndDate   time.Time `json:"planned_end_date"`
+	ForemanUserID    uint      `json:"foreman_user_id" binding:"required"`
+	InspectorUserID  uint      `json:"inspector_user_id" binding:"required"`
 }
 
 // ActivateObjectRequest - DTO для активации объекта

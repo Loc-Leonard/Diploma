@@ -29,8 +29,9 @@ func main() {
 	}
 
 	// Очищаем старые ограничения перед миграцией
-	cleanupConstraints(database)
-
+	if cfg.ResetDBOnStart {
+		cleanupConstraints(database)
+	}
 	// Автоматическая миграция моделей
 	if err := database.AutoMigrate(
 		&models.User{},
@@ -45,10 +46,11 @@ func main() {
 	}
 
 	// Сидирование данных
-	db.SeedAdmin(database, cfg)
-	db.SeedUsers(database)
-	db.SeedSampleData(database)
-
+	if cfg.SeedOnStart {
+		db.SeedAdmin(database, cfg)
+		db.SeedUsers(database)
+		db.SeedSampleData(database)
+	}
 	r := gin.Default()
 
 	// CORS настройка

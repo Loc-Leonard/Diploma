@@ -8,26 +8,30 @@ import (
 )
 
 type Config struct {
-	DBDsn        string
-	AdminEmail   string
-	AdminName    string
-	AdminPass    string
-	JWTSecret    string
-	StorageRoot  string
-	CVServiceURL string
+	DBDsn          string
+	AdminEmail     string
+	AdminName      string
+	AdminPass      string
+	JWTSecret      string
+	StorageRoot    string
+	CVServiceURL   string
+	ResetDBOnStart bool
+	SeedOnStart    bool
 }
 
 func Load() *Config {
 	_ = godotenv.Load()
 
 	cfg := &Config{
-		DBDsn:        os.Getenv("DB_DSN"),
-		AdminEmail:   os.Getenv("ADMIN_EMAIL"),
-		AdminName:    os.Getenv("ADMIN_FULL_NAME"),
-		AdminPass:    os.Getenv("ADMIN_PASSWORD"),
-		JWTSecret:    os.Getenv("JWT_SECRET"),
-		StorageRoot:  getenvDefault("STORAGE_ROOT", "storage"),
-		CVServiceURL: getenvDefault("CV_SERVICE_URL", "http://cv-agent:8000"),
+		DBDsn:          os.Getenv("DB_DSN"),
+		AdminEmail:     os.Getenv("ADMIN_EMAIL"),
+		AdminName:      os.Getenv("ADMIN_FULL_NAME"),
+		AdminPass:      os.Getenv("ADMIN_PASSWORD"),
+		JWTSecret:      os.Getenv("JWT_SECRET"),
+		StorageRoot:    getenvDefault("STORAGE_ROOT", "storage"),
+		CVServiceURL:   getenvDefault("CV_SERVICE_URL", "http://cv-agent:8000"),
+		ResetDBOnStart: os.Getenv("RESETDBONSTART") == "true",
+		SeedOnStart:    getenvDefault("SEEDONSTART", "true") == "true",
 	}
 
 	if cfg.DBDsn == "" {

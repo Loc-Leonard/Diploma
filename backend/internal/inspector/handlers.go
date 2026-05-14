@@ -19,6 +19,7 @@ import (
 	"github.com/Loc-Leonard/Diploma/backend/internal/auth"
 	"github.com/Loc-Leonard/Diploma/backend/internal/cv"
 	"github.com/Loc-Leonard/Diploma/backend/internal/models"
+	"github.com/Loc-Leonard/Diploma/backend/internal/objectcore"
 )
 
 type Handler struct {
@@ -173,6 +174,8 @@ func (h *Handler) ObjectsList(c *gin.Context) {
 		Status           models.ObjectStatus
 		ForemanName      string
 		PlannedStartDate *time.Time
+		Lat              float64
+		Lng              float64
 	}
 
 	var rows []row
@@ -185,7 +188,9 @@ func (h *Handler) ObjectsList(c *gin.Context) {
 			o.address,
 			o.status,
 			COALESCE(u.full_name, '') AS foreman_name,
-			o.planned_start_date
+			o.planned_start_date,
+			o.lat,
+			o.lng
 		FROM objects o
 		LEFT JOIN users u ON u.id = o.foreman_user_id
 		WHERE o.inspector_user_id = ?
@@ -207,7 +212,9 @@ func (h *Handler) ObjectsList(c *gin.Context) {
 				o.address,
 				o.status,
 				COALESCE(u.full_name, '') AS foreman_name,
-				o.planned_start_date
+				o.planned_start_date,
+				o.lat,
+				o.lng
 			FROM objects o
 			LEFT JOIN users u ON u.id = o.foreman_user_id
 			WHERE o.inspector_user_id = ? AND o.status = ?
@@ -230,6 +237,9 @@ func (h *Handler) ObjectsList(c *gin.Context) {
 			Status:           r.Status,
 			ForemanName:      r.ForemanName,
 			PlannedStartDate: r.PlannedStartDate,
+			Lat:              r.Lat,
+			Lng:              r.Lng,
+			Progress:         objectcore.CalcProgress(h.db, r.ID),
 			HasPendingAction: r.Status == models.ObjectStatusWaitingInspectorConfirmation,
 		})
 	}
