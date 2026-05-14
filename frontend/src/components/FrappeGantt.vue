@@ -32,15 +32,39 @@ const props = withDefaults(
 const ganttEl = ref<HTMLElement | null>(null)
 let ganttInstance: any = null
 
+function normalizeDate(value?: string | null): string {
+  if (!value) return ''
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value
+  }
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return ''
+  }
+
+  return parsed.toISOString().slice(0, 10)
+}
+
 function normalizeTasks(tasks: GanttTask[]): GanttTask[] {
   return tasks
-    .filter(task => task.start && task.end)
-    .map(task => ({
-      ...task,
-      start: task.start.slice(0, 10),
-      end: task.end.slice(0, 10),
-      progress: Math.max(0, Math.min(100, Number(task.progress ?? 0))),
-    }))
+    .map(task => {
+      const start = normalizeDate(task.start)
+      const end = normalizeDate(task.end)
+      const progress = Math.max(0, Math.min(100, Number(task.progress ?? 0)))
+
+      if (!start || !end) return null
+
+      return {
+        id: String(task.id),
+        name: String(task.name ?? ''),
+        start,
+        end,
+        progress,
+      }
+    })
+    .filter((task): task is GanttTask => task !== null)
 }
 
 function buildOptions() {
@@ -63,39 +87,26 @@ function buildOptions() {
   }
 }
 
+function clearGantt() {
+  if (ganttEl.value) {
+    ganttEl.value.innerHTML = ''
+  }
+  ganttInstance = null
+}
+
 function renderGantt() {
   if (!ganttEl.value) return
 
   const tasks = normalizeTasks(props.tasks)
-  ganttEl.value.innerHTML = ''
+  clearGantt()
 
-  if (!tasks.length) {
-    ganttInstance = null
-    return
-  }
+  if (!tasks.length) return
 
   ganttInstance = new Gantt(ganttEl.value, tasks, buildOptions())
 }
 
-function refreshTasks() {
-  if (!ganttEl.value) return
-
-  const tasks = normalizeTasks(props.tasks)
-
-  if (!tasks.length) {
-    ganttEl.value.innerHTML = ''
-    ganttInstance = null
-    return
-  }
-
-  if (!ganttInstance) {
-    renderGantt()
-    return
-  }
-
-  ganttInstance.refresh(tasks)
-  ganttInstance.update_options(buildOptions())
-  ganttInstance.change_view_mode(props.viewMode, true)
+function rerenderGantt() {
+  renderGantt()
 }
 
 onMounted(() => {
@@ -103,39 +114,28 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
-  if (ganttEl.value) {
-    ganttEl.value.innerHTML = ''
-  }
-  ganttInstance = null
+  clearGantt()
 })
 
 watch(
   () => props.tasks,
   () => {
-    refreshTasks()
+    rerenderGantt()
   },
   { deep: true }
 )
 
 watch(
   () => props.viewMode,
-  newMode => {
-    if (!ganttInstance) {
-      renderGantt()
-      return
-    }
-    ganttInstance.change_view_mode(newMode, true)
+  () => {
+    rerenderGantt()
   }
 )
 
 watch(
   () => props.height,
   () => {
-    if (!ganttInstance) {
-      renderGantt()
-      return
-    }
-    ganttInstance.update_options(buildOptions())
+    rerenderGantt()
   }
 )
 </script>
