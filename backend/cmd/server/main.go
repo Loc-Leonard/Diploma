@@ -15,6 +15,7 @@ import (
 	"github.com/Loc-Leonard/Diploma/backend/internal/db"
 	"github.com/Loc-Leonard/Diploma/backend/internal/foreman"
 	"github.com/Loc-Leonard/Diploma/backend/internal/inspector"
+	"github.com/Loc-Leonard/Diploma/backend/internal/issues"
 	"github.com/Loc-Leonard/Diploma/backend/internal/models"
 	"github.com/Loc-Leonard/Diploma/backend/internal/storage"
 )
@@ -39,10 +40,13 @@ func main() {
 		&models.WorkItem{},
 		&models.WorkReport{},
 		&models.MaterialDelivery{},
-		&models.MaterialDocument{},
 		&models.Inspection{},
+		&models.Issue{},
+		&models.IssueComment{},
+		&models.IssueStatusHistory{},
+		&models.MaterialDocument{},
 	); err != nil {
-		log.Printf("auto migrate failed: %v", err)
+		log.Fatalf("auto migrate failed: %v", err)
 	}
 
 	// Сидирование данных
@@ -73,6 +77,7 @@ func main() {
 
 	// Inspector (с CV процессором и хранилищем)
 	inspector.RegisterRoutes(r, database, cvProcessor, cfg.StorageRoot)
+	issues.RegisterRoutes(r, database, cfg.StorageRoot)
 
 	// Storage (общие для скачивания файлов)
 	storage.RegisterRoutes(r, database, cfg.StorageRoot)
@@ -99,4 +104,7 @@ func cleanupConstraints(database *gorm.DB) {
 	database.Exec(`DROP TABLE IF EXISTS "material_deliveries" CASCADE`)
 	database.Exec(`DROP TABLE IF EXISTS "material_documents" CASCADE`)
 	database.Exec(`DROP TABLE IF EXISTS "inspections" CASCADE`)
+	database.Exec(`DROP TABLE IF EXISTS "issue_status_hostories" CASCADE`)
+	database.Exec(`DROP TABLE IF EXISTS "issue_comments" CASCADE`)
+	database.Exec(`DROP TABLE IF EXISTS "issues" CASCADE`)
 }

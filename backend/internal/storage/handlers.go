@@ -102,12 +102,24 @@ func (h *Handler) DownloadFile(c *gin.Context) {
 
 // checkAccess - проверка доступа пользователя к документу
 func (h *Handler) checkAccess(userID uint, doc models.MaterialDocument) bool {
-	// 1. Проверяем через UploadedBy
+	// 1. Блок проверки для замечаний
+	if doc.IssueID != nil {
+		var issue models.Issue
+		if err := h.db.First(&issue, *doc.IssueID).Error; err == nil {
+			var obj models.Object
+			if err := h.db.First(&obj, issue.ObjectID).Error; err == nil {
+				if obj.CustomerControlUserID == userID || obj.ForemanUserID == userID || obj.InspectorUserID == userID {
+					return true
+				}
+			}
+		}
+	}
+	// 2. Проверяем через UploadedBy
 	if doc.UploadedBy != nil && *doc.UploadedBy == userID {
 		return true
 	}
 
-	// 2. Проверяем через Delivery (для Foreman)
+	// 3. Проверяем через Delivery (для Foreman)
 	if doc.DeliveryID != nil {
 		var delivery models.MaterialDelivery
 		if err := h.db.First(&delivery, *doc.DeliveryID).Error; err == nil {
