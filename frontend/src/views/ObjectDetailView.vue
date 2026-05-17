@@ -2,7 +2,7 @@
   <div class="layout">
     <CustomerLayout v-if="role === 'CUSTOMER'" />
     <InspectorLayout v-else-if="role === 'INSPECTOR'" />
-    <ForemanLayout v-else-if="role === 'FOREMAN'"/>
+    <ForemanLayout v-else-if="role === 'FOREMAN'" />
     <main class="main">
       <header class="page-header">
         <div class="page-header-left">
@@ -27,7 +27,8 @@
             <AppMap
               v-if="objectMapMarkers.length"
               :markers="objectMapMarkers"
-              height="180px"/>
+              height="180px"
+            />
             <div v-else class="map-placeholder-box">🗺</div>
           </div>
 
@@ -210,14 +211,14 @@
                     <th>Наименование</th>
                     <th>Ед.</th>
                     <th>План</th>
-                    <th>progress</th>
+                    <th>Прогресс</th>
                     <th v-if="role === 'CUSTOMER'">Действия</th>
                     <th v-if="role === 'FOREMAN'">Факт (сегодня)</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr
-                    v-for="item in (detail.work_items || [])"
+                    v-for="item in detail.work_items || []"
                     :key="item.id"
                   >
                     <td>{{ item.name }}</td>
@@ -356,7 +357,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="d in (detail.deliveries || [])" :key="d.id">
+                  <tr v-for="d in detail.deliveries || []" :key="d.id">
                     <td>{{ fmtDate(d.date) }}</td>
                     <td>{{ d.material }}</td>
                     <td>{{ d.qty }}</td>
@@ -366,7 +367,20 @@
             </div>
           </section>
 
-          <!-- Секция документов с DocumentManager -->
+          <section class="card card--issues">
+            <IssuesListSection
+              :issues="filteredIssues"
+              :loading="issuesLoading"
+              :error="issuesError"
+              :can-create="canCreateIssue"
+              :create-button-label="issueCreateButtonLabel"
+              :active-filter="issueFilter"
+              @create="openCreateIssue"
+              @open="openIssueDetails"
+              @change-filter="issueFilter = $event"
+            />
+          </section>
+
           <section class="card">
             <DocumentManager
               v-if="detail?.object.id"
@@ -396,7 +410,34 @@
         </div>
       </div>
 
-      <!-- Модалки (активация, редактирование, отклонение) -->
+      <IssueCreateModal
+        v-if="showIssueCreateModal"
+        :mode="issueCreateMode"
+        :submitting="issueCreateSubmitting"
+        :error="issueCreateError"
+        @close="showIssueCreateModal = false"
+        @submit="submitCreateIssue"
+      />
+
+      <IssueDetailModal
+        v-if="selectedIssueId"
+        :issue="selectedIssue"
+        :loading="issueDetailLoading"
+        :error="issueDetailError"
+        :can-resolve="canResolveSelectedIssue"
+        :can-review="canReviewSelectedIssue"
+        :comment-submitting="issueCommentSubmitting"
+        :resolve-submitting="issueResolveSubmitting"
+        :review-submitting="issueReviewSubmitting"
+        @close="closeIssueDetails"
+        @download="downloadIssueAttachment"
+        @upload="uploadIssueAttachment"
+        @comment="addIssueComment"
+        @mark-in-progress="markIssueInProgress"
+        @resolve="resolveIssue"
+        @review="reviewIssue"
+      />
+
       <div
         v-if="showActivateModal"
         class="modal-overlay"
@@ -500,7 +541,6 @@
         </div>
       </div>
 
-      <!-- Модалка отклонения (инспектор) -->
       <div
         v-if="showRejectModal"
         class="modal-overlay"
@@ -534,7 +574,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import CustomerLayout from './CustomerLayout.vue'
@@ -543,19 +583,14 @@ import ForemanLayout from './ForemanLayout.vue'
 import FrappeGantt from '@/components/FrappeGantt.vue'
 import DocumentManager from '@/components/DocumentManager.vue'
 import AppMap from '@/components/AppMap.vue'
+import IssuesListSection from '@/components/issues/IssuesListSection.vue'
+import IssueCreateModal from '@/components/issues/IssueCreateModal.vue'
+import IssueDetailModal from '@/components/issues/IssueDetailModal.vue'
 
 const API_BASE = 'http://localhost:8080'
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
-
-const role = computed(() => auth.user?.role ?? '')
-const greeting = computed(() => {
-  const name = auth.user?.full_name
-  return name ? `Добрый день, ${name}` : 'Добрый день'
-})
-
-// ─── Типы ────────────────────────────────────────────────────────────────────
 
 type ObjStatus = 'PLANNED' | 'WAITING_INSPECTOR_CONFIRMATION' | 'ACTIVE' | 'FINISHED'
 
@@ -625,7 +660,72 @@ interface DetailResponse {
   deliveries: Delivery[]
 }
 
-// ─── Состояние ───────────────────────────────────────────────────────────────
+interface IssueAttachment {
+  id: number
+  document_type: string
+  original_file_name: string
+  mime_type: string
+  cv_status: string
+  cv_confidence?: number
+  created_at: string
+  uploaded_by: string
+  download_url: string
+}
+
+interface IssueComment {
+  id: number
+  author_id: number
+  author_name: string
+  author_role: string
+  comment: string
+  comment_type: string
+  created_at: string
+}
+
+interface IssueStatusHistory {
+  id: number
+  from_status?: string
+  to_status: string
+  changed_by_id: number
+  changed_by_name: string
+  changed_by_role: string
+  comment: string
+  created_at: string
+}
+
+interface IssueItem {
+  id: number
+  object_id: number
+  type: 'remark' | 'violation'
+  status: 'open' | 'in_progress' | 'resolved_by_foreman' | 'accepted' | 'rejected'
+  display_status: string
+  title: string
+  description: string
+  due_date?: string | null
+  author_id: number
+  author_name: string
+  author_role: string
+  classifier_code?: string
+  created_at: string
+  updated_at: string
+  resolved_at?: string | null
+  accepted_at?: string | null
+  rejection_reason?: string
+  is_overdue: boolean
+  attachments: IssueAttachment[]
+  comment?: string
+  resolution_comment?: string
+  comments?: IssueComment[]
+  status_history?: IssueStatusHistory[]
+}
+
+type GanttTask = {
+  id: string
+  name: string
+  start: string
+  end: string
+  progress: number
+}
 
 const detail = ref<DetailResponse | null>(null)
 const loading = ref(true)
@@ -645,7 +745,6 @@ const deliveryForm = ref({
   date: new Date().toISOString().slice(0, 10),
 })
 
-// форма этапа (заказчик)
 const showWorkItemForm = ref(false)
 const workItemLoading = ref(false)
 const workItemError = ref<string | null>(null)
@@ -657,7 +756,6 @@ const workItemForm = ref({
   planned_end_date: '',
 })
 
-// редактирование этапа (заказчик)
 const showEditWorkItemModal = ref(false)
 const editingWorkItemId = ref<number | null>(null)
 const editWorkItemLoading = ref(false)
@@ -673,19 +771,16 @@ const editWorkItemForm = ref({
   depends_on_id: null as number | null,
 })
 
-// активация
 const showActivateModal = ref(false)
 const activateLoading = ref(false)
 const activateError = ref<string | null>(null)
 const activateForm = ref({ checklist_json: '', act_file_path: '' })
 
-// отклонение инспектором
 const showRejectModal = ref(false)
 const rejectReason = ref('')
 const approveLoading = ref(false)
 const decisionError = ref<string | null>(null)
 
-// Документы
 const documents = ref<Document[]>([])
 const docLoading = ref(false)
 const docUploading = ref(false)
@@ -695,7 +790,85 @@ const docDeletingId = ref<number | null>(null)
 const docDownloadingId = ref<number | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 
-// ─── Загрузка ───────────────────────────────────────────────────────────────
+const issues = ref<IssueItem[]>([])
+const issuesLoading = ref(false)
+const issuesError = ref<string | null>(null)
+const issueFilter = ref('all')
+
+const showIssueCreateModal = ref(false)
+const issueCreateMode = ref<'remark' | 'violation'>('remark')
+const issueCreateSubmitting = ref(false)
+const issueCreateError = ref<string | null>(null)
+
+const selectedIssueId = ref<number | null>(null)
+const selectedIssue = ref<IssueItem | null>(null)
+const issueDetailLoading = ref(false)
+const issueDetailError = ref<string | null>(null)
+
+const issueCommentSubmitting = ref(false)
+const issueResolveSubmitting = ref(false)
+const issueReviewSubmitting = ref(false)
+
+const role = computed(() => auth.user?.role ?? '')
+
+const issueBaseUrl = computed(() => {
+  const objectId = detail.value?.object?.id
+  if (!objectId) return ''
+
+  return `${API_BASE}/${role.value.toLowerCase()}/objects/${objectId}/issues`
+})
+
+const documentsBaseUrl = computed(() => {
+  const objectId = detail.value?.object?.id
+  if (!objectId) return ''
+
+  return `${API_BASE}/${role.value.toLowerCase()}/objects/${objectId}/documents`
+})
+
+const canCreateIssue = computed(() => role.value === 'CUSTOMER' || role.value === 'INSPECTOR')
+
+const issueCreateButtonLabel = computed(() => {
+  if (role.value === 'CUSTOMER') return 'Добавить замечание'
+  if (role.value === 'INSPECTOR') return 'Добавить нарушение'
+  return ''
+})
+
+const filteredIssues = computed<IssueItem[]>(() => {
+  const items: IssueItem[] = issues.value ?? []
+
+  switch (issueFilter.value) {
+    case 'remark':
+      return items.filter((i: IssueItem) => i.type === 'remark')
+    case 'violation':
+      return items.filter((i: IssueItem) => i.type === 'violation')
+    case 'open':
+      return items.filter((i: IssueItem) =>
+        ['open', 'in_progress'].includes(i.display_status || i.status),
+      )
+    case 'overdue':
+      return items.filter((i: IssueItem) => (i.display_status || i.status) === 'overdue')
+    case 'resolved_by_foreman':
+      return items.filter((i: IssueItem) => (i.display_status || i.status) === 'resolved_by_foreman')
+    case 'closed':
+      return items.filter((i: IssueItem) => ['accepted'].includes(i.status))
+    default:
+      return items
+  }
+})
+
+const canResolveSelectedIssue = computed(() => {
+  if (role.value !== 'FOREMAN' || !selectedIssue.value) return false
+  const status = selectedIssue.value.status
+  return ['open', 'in_progress', 'rejected'].includes(status)
+})
+
+const canReviewSelectedIssue = computed(() => {
+  if (!selectedIssue.value) return false
+  if (selectedIssue.value.status !== 'resolved_by_foreman') return false
+  if (role.value === 'CUSTOMER' && selectedIssue.value.type === 'remark') return true
+  if (role.value === 'INSPECTOR' && selectedIssue.value.type === 'violation') return true
+  return false
+})
 
 function endpointForRole() {
   const id = route.params.id
@@ -721,22 +894,23 @@ async function fetchDetail() {
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${auth.token}` },
     })
-    if (!res.ok)
-      throw new Error(
-        (await res.json().catch(() => ({}))).error ?? 'Ошибка загрузки',
-      )
+
+    if (!res.ok) {
+      throw new Error((await res.json().catch(() => ({}))).error ?? 'Ошибка загрузки')
+    }
 
     const data = await res.json()
     const obj = data.object ?? data
+
     detail.value = {
       object: obj,
       work_items: Array.isArray(data.work_items) ? data.work_items : [],
       deliveries: Array.isArray(data.deliveries) ? data.deliveries : [],
     }
-    
-    // Загружаем документы после загрузки объекта
+
     if (obj.id) {
-      fetchDocuments()
+      await fetchDocuments()
+      await fetchIssues()
     }
   } catch (e: any) {
     error.value = e.message
@@ -745,26 +919,19 @@ async function fetchDetail() {
   }
 }
 
-// ─── Документы ───────────────────────────────────────────────────────────────
-
-const documentsBaseUrl = computed(() => {
-  if (!detail.value?.object.id) return ''
-  return `${API_BASE}/${role.value.toLowerCase()}/objects/${detail.value.object.id}/documents`
-})
-
 async function fetchDocuments() {
   if (!documentsBaseUrl.value) return
-  
+
   docLoading.value = true
   docError.value = null
   try {
     const res = await fetch(documentsBaseUrl.value, {
-      headers: { 
+      headers: {
         Authorization: `Bearer ${auth.token}`,
-        'Content-Type': 'application/json'
-      }
+        'Content-Type': 'application/json',
+      },
     })
-    
+
     if (!res.ok) {
       const errorText = await res.text()
       let errorData = { error: 'Ошибка загрузки документов' }
@@ -773,7 +940,7 @@ async function fetchDocuments() {
       } catch {}
       throw new Error(errorData.error || `Ошибка ${res.status}`)
     }
-    
+
     const data = await res.json()
     documents.value = Array.isArray(data) ? data : []
   } catch (e: any) {
@@ -785,9 +952,7 @@ async function fetchDocuments() {
 }
 
 function triggerFileInput() {
-  if (fileInputRef.value) {
-    fileInputRef.value.click()
-  }
+  fileInputRef.value?.click()
 }
 
 async function handleFileSelect(event: Event) {
@@ -795,28 +960,31 @@ async function handleFileSelect(event: Event) {
   const file = target.files?.[0]
   if (!file) return
 
-  // Проверка размера (10MB)
   const maxSize = 10 * 1024 * 1024
   if (file.size > maxSize) {
     docErrorMessage.value = `Файл слишком большой (макс. 10MB). Размер: ${formatFileSize(file.size)}`
     return
   }
 
-  // Проверка типа
   const allowedTypes = [
-    'image/jpeg', 'image/png', 'image/jpg', 'image/gif',
+    'image/jpeg',
+    'image/png',
+    'image/jpg',
+    'image/gif',
     'application/pdf',
-    'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   ]
+
   if (!allowedTypes.includes(file.type)) {
     docErrorMessage.value = 'Неподдерживаемый тип файла'
     return
   }
 
   await uploadFile(file)
-  
-  // Очищаем input
+
   if (fileInputRef.value) {
     fileInputRef.value.value = ''
   }
@@ -824,7 +992,7 @@ async function handleFileSelect(event: Event) {
 
 async function uploadFile(file: File) {
   if (!documentsBaseUrl.value) return
-  
+
   docUploading.value = true
   docErrorMessage.value = null
 
@@ -834,13 +1002,13 @@ async function uploadFile(file: File) {
 
   try {
     const uploadUrl = `${documentsBaseUrl.value}/upload`
-    
+
     const res = await fetch(uploadUrl, {
       method: 'POST',
-      headers: { 
-        Authorization: `Bearer ${auth.token}`
+      headers: {
+        Authorization: `Bearer ${auth.token}`,
       },
-      body: formData
+      body: formData,
     })
 
     if (!res.ok) {
@@ -852,7 +1020,6 @@ async function uploadFile(file: File) {
       throw new Error(errorData.error || `Ошибка ${res.status}`)
     }
 
-    // Обновляем список документов
     await fetchDocuments()
   } catch (e: any) {
     docErrorMessage.value = e.message
@@ -864,14 +1031,14 @@ async function uploadFile(file: File) {
 async function downloadDocument(doc: Document) {
   docDownloadingId.value = doc.id
   docErrorMessage.value = null
-  
+
   try {
     const downloadUrl = `${API_BASE}/${role.value.toLowerCase()}/objects/${detail.value?.object.id}/documents/${doc.id}/download`
-    
+
     const res = await fetch(downloadUrl, {
-      headers: { Authorization: `Bearer ${auth.token}` }
+      headers: { Authorization: `Bearer ${auth.token}` },
     })
-    
+
     if (!res.ok) {
       throw new Error(`Ошибка скачивания: ${res.status}`)
     }
@@ -902,10 +1069,10 @@ async function deleteDocument(doc: Document) {
 
   try {
     const url = `${documentsBaseUrl.value}/${doc.id}`
-    
+
     const res = await fetch(url, {
       method: 'DELETE',
-      headers: { Authorization: `Bearer ${auth.token}` }
+      headers: { Authorization: `Bearer ${auth.token}` },
     })
 
     if (!res.ok) {
@@ -917,8 +1084,7 @@ async function deleteDocument(doc: Document) {
       throw new Error(errorData.error || `Ошибка ${res.status}`)
     }
 
-    // Обновляем список
-    documents.value = documents.value.filter(d => d.id !== doc.id)
+    documents.value = documents.value.filter((d: Document) => d.id !== doc.id)
   } catch (e: any) {
     docErrorMessage.value = e.message
   } finally {
@@ -930,13 +1096,11 @@ function canDeleteDocument(doc: Document) {
   const currentUserId = auth.user?.id
   const currentUserName = auth.user?.full_name
   const currentUserRole = auth.user?.role
-  
-  // Админ может удалять все документы
+
   if (currentUserRole === 'admin') {
     return true
   }
-  
-  // Пользователь может удалять свои документы
+
   return doc.uploaded_by === currentUserName || doc.uploaded_by === String(currentUserId)
 }
 
@@ -945,15 +1109,246 @@ function formatFileSize(bytes: number) {
   const k = 1024
   const sizes = ['Bytes', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
+  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i]
 }
 
-// ─── Прораб ──────────────────────────────────────────────────────────────────
+async function fetchIssues() {
+  if (!issueBaseUrl.value) return
+  issuesLoading.value = true
+  issuesError.value = null
+  try {
+    const res = await fetch(issueBaseUrl.value, {
+      headers: { Authorization: `Bearer ${auth.token}` },
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.error || 'Ошибка загрузки замечаний и нарушений')
+    }
+    issues.value = await res.json()
+  } catch (e: any) {
+    issuesError.value = e.message
+  } finally {
+    issuesLoading.value = false
+  }
+}
+
+async function fetchIssueDetail(issueId: number) {
+  issueDetailLoading.value = true
+  issueDetailError.value = null
+  try {
+    const res = await fetch(`${API_BASE}/issues/${issueId}`, {
+      headers: { Authorization: `Bearer ${auth.token}` },
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.error || 'Ошибка загрузки записи')
+    }
+    selectedIssue.value = await res.json()
+  } catch (e: any) {
+    issueDetailError.value = e.message
+  } finally {
+    issueDetailLoading.value = false
+  }
+}
+
+function openCreateIssue() {
+  issueCreateMode.value = role.value === 'INSPECTOR' ? 'violation' : 'remark'
+  issueCreateError.value = null
+  showIssueCreateModal.value = true
+}
+
+async function submitCreateIssue(payload: any) {
+  if (!issueBaseUrl.value) return
+  issueCreateSubmitting.value = true
+  issueCreateError.value = null
+  try {
+    const res = await fetch(issueBaseUrl.value, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${auth.token}`,
+      },
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.error || 'Ошибка создания записи')
+    }
+    showIssueCreateModal.value = false
+    await fetchIssues()
+  } catch (e: any) {
+    issueCreateError.value = e.message
+  } finally {
+    issueCreateSubmitting.value = false
+  }
+}
+
+async function openIssueDetails(issue: IssueItem) {
+  selectedIssueId.value = issue.id
+  selectedIssue.value = null
+  await fetchIssueDetail(issue.id)
+}
+
+function closeIssueDetails() {
+  selectedIssueId.value = null
+  selectedIssue.value = null
+  issueDetailError.value = null
+}
+
+async function addIssueComment(text: string) {
+  if (!selectedIssueId.value) return
+  issueCommentSubmitting.value = true
+  try {
+    const res = await fetch(`${API_BASE}/issues/${selectedIssueId.value}/comments`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${auth.token}`,
+      },
+      body: JSON.stringify({ comment: text }),
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.error || 'Ошибка отправки комментария')
+    }
+    await fetchIssueDetail(selectedIssueId.value)
+    await fetchIssues()
+  } catch (e: any) {
+    issueDetailError.value = e.message
+  } finally {
+    issueCommentSubmitting.value = false
+  }
+}
+
+async function uploadIssueAttachment(file: File) {
+  if (!selectedIssueId.value) return
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('document_type', 'OTHER')
+  try {
+    const res = await fetch(`${API_BASE}/issues/${selectedIssueId.value}/attachments`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${auth.token}`,
+      },
+      body: formData,
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.error || 'Ошибка загрузки вложения')
+    }
+    await fetchIssueDetail(selectedIssueId.value)
+    await fetchIssues()
+  } catch (e: any) {
+    issueDetailError.value = e.message
+  }
+}
+
+async function downloadIssueAttachment(file: IssueAttachment) {
+  try {
+    const res = await fetch(`${API_BASE}/storage/download/${file.id}`, {
+      headers: { Authorization: `Bearer ${auth.token}` },
+    })
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.error || 'Ошибка скачивания вложения')
+    }
+
+    const blob = await res.blob()
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = file.original_file_name
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+  } catch (e: any) {
+    issueDetailError.value = e.message
+  }
+}
+
+async function markIssueInProgress(issue: IssueItem) {
+  issueResolveSubmitting.value = true
+  try {
+    const res = await fetch(`${API_BASE}/foreman/issues/${issue.id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${auth.token}`,
+      },
+      body: JSON.stringify({ status: 'in_progress' }),
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.error || 'Ошибка обновления статуса')
+    }
+    await fetchIssueDetail(issue.id)
+    await fetchIssues()
+  } catch (e: any) {
+    issueDetailError.value = e.message
+  } finally {
+    issueResolveSubmitting.value = false
+  }
+}
+
+async function resolveIssue(payload: { issue: IssueItem; comment: string }) {
+  issueResolveSubmitting.value = true
+  try {
+    const res = await fetch(`${API_BASE}/foreman/issues/${payload.issue.id}/resolve`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${auth.token}`,
+      },
+      body: JSON.stringify({ comment: payload.comment }),
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.error || 'Ошибка отправки на проверку')
+    }
+    await fetchIssueDetail(payload.issue.id)
+    await fetchIssues()
+  } catch (e: any) {
+    issueDetailError.value = e.message
+  } finally {
+    issueResolveSubmitting.value = false
+  }
+}
+
+async function reviewIssue(payload: { issue: IssueItem; decision: 'ACCEPT' | 'REJECT'; comment: string }) {
+  issueReviewSubmitting.value = true
+  try {
+    const prefix = role.value === 'CUSTOMER' ? 'customer' : 'inspector'
+    const res = await fetch(`${API_BASE}/${prefix}/issues/${payload.issue.id}/review`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${auth.token}`,
+      },
+      body: JSON.stringify({
+        decision: payload.decision,
+        comment: payload.comment,
+      }),
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.error || 'Ошибка проверки результата')
+    }
+    await fetchIssueDetail(payload.issue.id)
+    await fetchIssues()
+  } catch (e: any) {
+    issueDetailError.value = e.message
+  } finally {
+    issueReviewSubmitting.value = false
+  }
+}
 
 async function submitReports() {
   const reports = Object.entries(reportForm.value)
-    .filter(([, qty]) => qty > 0)
-    .map(([workItemId, qty]) => ({
+    .filter(([, qty]: [string, number]) => qty > 0)
+    .map(([workItemId, qty]: [string, number]) => ({
       work_item_id: Number(workItemId),
       qty,
       date: new Date().toISOString().slice(0, 10),
@@ -968,21 +1363,17 @@ async function submitReports() {
   submitError.value = null
   submitSuccess.value = null
   try {
-    const res = await fetch(
-      `${API_BASE}/foreman/objects/${route.params.id}/work-reports`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${auth.token}`,
-        },
-        body: JSON.stringify({ reports }),
+    const res = await fetch(`${API_BASE}/foreman/objects/${route.params.id}/work-reports`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${auth.token}`,
       },
-    )
-    if (!res.ok)
-      throw new Error(
-        (await res.json().catch(() => ({}))).error ?? 'Ошибка',
-      )
+      body: JSON.stringify({ reports }),
+    })
+    if (!res.ok) {
+      throw new Error((await res.json().catch(() => ({}))).error ?? 'Ошибка')
+    }
     reportForm.value = {}
     submitSuccess.value = 'Отчёт сохранён'
     await fetchDetail()
@@ -1009,21 +1400,17 @@ async function submitDelivery() {
   deliveryLoading.value = true
   deliveryError.value = null
   try {
-    const res = await fetch(
-      `${API_BASE}/foreman/objects/${route.params.id}/deliveries`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${auth.token}`,
-        },
-        body: JSON.stringify(deliveryForm.value),
+    const res = await fetch(`${API_BASE}/foreman/objects/${route.params.id}/deliveries`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${auth.token}`,
       },
-    )
-    if (!res.ok)
-      throw new Error(
-        (await res.json().catch(() => ({}))).error ?? 'Ошибка',
-      )
+      body: JSON.stringify(deliveryForm.value),
+    })
+    if (!res.ok) {
+      throw new Error((await res.json().catch(() => ({}))).error ?? 'Ошибка')
+    }
     showDeliveryForm.value = false
     deliveryForm.value = {
       material: '',
@@ -1037,8 +1424,6 @@ async function submitDelivery() {
     deliveryLoading.value = false
   }
 }
-
-// ─── Заказчик: этапы ─────────────────────────────────────────────────────────
 
 async function submitWorkItem() {
   if (!workItemForm.value.name.trim()) {
@@ -1054,30 +1439,24 @@ async function submitWorkItem() {
       unit: workItemForm.value.unit,
       plan_qty: workItemForm.value.plan_qty,
     }
-    if (workItemForm.value.planned_start_date)
-      body.planned_start_date = new Date(
-        workItemForm.value.planned_start_date,
-      ).toISOString()
-    if (workItemForm.value.planned_end_date)
-      body.planned_end_date = new Date(
-        workItemForm.value.planned_end_date,
-      ).toISOString()
+    if (workItemForm.value.planned_start_date) {
+      body.planned_start_date = new Date(workItemForm.value.planned_start_date).toISOString()
+    }
+    if (workItemForm.value.planned_end_date) {
+      body.planned_end_date = new Date(workItemForm.value.planned_end_date).toISOString()
+    }
 
-    const res = await fetch(
-      `${API_BASE}/customer/objects/${route.params.id}/work-items`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${auth.token}`,
-        },
-        body: JSON.stringify(body),
+    const res = await fetch(`${API_BASE}/customer/objects/${route.params.id}/work-items`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${auth.token}`,
       },
-    )
-    if (!res.ok)
-      throw new Error(
-        (await res.json().catch(() => ({}))).error ?? 'Ошибка',
-      )
+      body: JSON.stringify(body),
+    })
+    if (!res.ok) {
+      throw new Error((await res.json().catch(() => ({}))).error ?? 'Ошибка')
+    }
 
     showWorkItemForm.value = false
     workItemForm.value = {
@@ -1129,14 +1508,12 @@ async function submitEditWorkItem() {
       sort_order: editWorkItemForm.value.sort_order,
       depends_on_id: editWorkItemForm.value.depends_on_id,
     }
-    if (editWorkItemForm.value.planned_start_date)
-      body.planned_start_date = new Date(
-        editWorkItemForm.value.planned_start_date,
-      ).toISOString()
-    if (editWorkItemForm.value.planned_end_date)
-      body.planned_end_date = new Date(
-        editWorkItemForm.value.planned_end_date,
-      ).toISOString()
+    if (editWorkItemForm.value.planned_start_date) {
+      body.planned_start_date = new Date(editWorkItemForm.value.planned_start_date).toISOString()
+    }
+    if (editWorkItemForm.value.planned_end_date) {
+      body.planned_end_date = new Date(editWorkItemForm.value.planned_end_date).toISOString()
+    }
 
     const res = await fetch(
       `${API_BASE}/customer/objects/${route.params.id}/work-items/${editingWorkItemId.value}`,
@@ -1149,10 +1526,9 @@ async function submitEditWorkItem() {
         body: JSON.stringify(body),
       },
     )
-    if (!res.ok)
-      throw new Error(
-        (await res.json().catch(() => ({}))).error ?? 'Ошибка',
-      )
+    if (!res.ok) {
+      throw new Error((await res.json().catch(() => ({}))).error ?? 'Ошибка')
+    }
 
     showEditWorkItemModal.value = false
     editingWorkItemId.value = null
@@ -1174,27 +1550,21 @@ async function deleteWorkItem(itemId: number) {
   if (!confirm('Вы уверены, что хотите удалить этот этап?')) return
 
   try {
-    const res = await fetch(
-      `${API_BASE}/customer/objects/${route.params.id}/work-items/${itemId}`,
-      {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${auth.token}`,
-        },
+    const res = await fetch(`${API_BASE}/customer/objects/${route.params.id}/work-items/${itemId}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${auth.token}`,
       },
-    )
-    if (!res.ok)
-      throw new Error(
-        (await res.json().catch(() => ({}))).error ?? 'Ошибка',
-      )
+    })
+    if (!res.ok) {
+      throw new Error((await res.json().catch(() => ({}))).error ?? 'Ошибка')
+    }
 
     await fetchDetail()
   } catch (e: any) {
     alert(e.message || 'Ошибка при удалении')
   }
 }
-
-// ─── Заказчик: активация ─────────────────────────────────────────────────────
 
 async function submitActivate() {
   if (!activateForm.value.checklist_json.trim()) {
@@ -1205,24 +1575,20 @@ async function submitActivate() {
   activateLoading.value = true
   activateError.value = null
   try {
-    const res = await fetch(
-      `${API_BASE}/customer/objects/${route.params.id}/activate`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${auth.token}`,
-        },
-        body: JSON.stringify({
-          checklist_json: activateForm.value.checklist_json,
-          act_file_path: activateForm.value.act_file_path || undefined,
-        }),
+    const res = await fetch(`${API_BASE}/customer/objects/${route.params.id}/activate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${auth.token}`,
       },
-    )
-    if (!res.ok)
-      throw new Error(
-        (await res.json().catch(() => ({}))).error ?? 'Ошибка',
-      )
+      body: JSON.stringify({
+        checklist_json: activateForm.value.checklist_json,
+        act_file_path: activateForm.value.act_file_path || undefined,
+      }),
+    })
+    if (!res.ok) {
+      throw new Error((await res.json().catch(() => ({}))).error ?? 'Ошибка')
+    }
     showActivateModal.value = false
     await fetchDetail()
   } catch (e: any) {
@@ -1232,30 +1598,21 @@ async function submitActivate() {
   }
 }
 
-// ─── Инспектор ───────────────────────────────────────────────────────────────
-
-async function sendDecision(
-  decision: 'APPROVE' | 'REJECT',
-  rejection_reason = '',
-) {
+async function sendDecision(decision: 'APPROVE' | 'REJECT', rejection_reason = '') {
   approveLoading.value = true
   decisionError.value = null
   try {
-    const res = await fetch(
-      `${API_BASE}/inspector/objects/${route.params.id}/activation-decision`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${auth.token}`,
-        },
-        body: JSON.stringify({ decision, rejection_reason }),
+    const res = await fetch(`${API_BASE}/inspector/objects/${route.params.id}/activation-decision`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${auth.token}`,
       },
-    )
-    if (!res.ok)
-      throw new Error(
-        (await res.json().catch(() => ({}))).error ?? 'Ошибка',
-      )
+      body: JSON.stringify({ decision, rejection_reason }),
+    })
+    if (!res.ok) {
+      throw new Error((await res.json().catch(() => ({}))).error ?? 'Ошибка')
+    }
     showRejectModal.value = false
     rejectReason.value = ''
     await fetchDetail()
@@ -1278,19 +1635,9 @@ async function rejectActivation() {
   await sendDecision('REJECT', rejectReason.value.trim())
 }
 
-// ─── Хелперы ─────────────────────────────────────────────────────────────────
-
 function fmtDate(v?: string | null) {
   if (!v) return '—'
   return new Date(v).toLocaleDateString('ru-RU')
-}
-
-function fmtChecklist(json: string) {
-  try {
-    return JSON.stringify(JSON.parse(json), null, 2)
-  } catch {
-    return json
-  }
 }
 
 function statusLabel(s: ObjStatus) {
@@ -1326,20 +1673,6 @@ function goBack() {
   }
 }
 
-
-
-onMounted(fetchDetail)
-
-// ─── Гантт ───────────────────────────────────────────────────────────────────
-
-type GanttTask = {
-  id: string
-  name: string
-  start: string
-  end: string
-  progress: number
-}
-
 function toYMD(dateStr?: string | null): string {
   if (!dateStr) return ''
   return new Date(dateStr).toISOString().slice(0, 10)
@@ -1370,15 +1703,15 @@ const ganttViewMode = computed<'Day' | 'Week' | 'Month'>(() => {
   if (!items.length) return 'Week'
 
   const ranges = items
-    .map(getActualDateRange)
+    .map((i: WorkItem) => getActualDateRange(i))
     .filter(
       (r): r is { start: string; end: string } => Boolean(r.start && r.end),
     )
 
   if (!ranges.length) return 'Week'
 
-  const starts = ranges.map(r => new Date(r.start).getTime())
-  const ends = ranges.map(r => new Date(r.end).getTime())
+  const starts = ranges.map((r) => new Date(r.start).getTime())
+  const ends = ranges.map((r) => new Date(r.end).getTime())
 
   const minStart = Math.min(...starts)
   const maxEnd = Math.max(...ends)
@@ -1391,7 +1724,7 @@ const ganttViewMode = computed<'Day' | 'Week' | 'Month'>(() => {
 
 const ganttTasks = computed<GanttTask[]>(() =>
   (detail.value?.work_items ?? [])
-    .map((i): GanttTask | null => {
+    .map((i: WorkItem): GanttTask | null => {
       const { start, end } = getActualDateRange(i)
       if (!start || !end) return null
 
@@ -1403,9 +1736,8 @@ const ganttTasks = computed<GanttTask[]>(() =>
         progress: Math.round(i.progress ?? 0),
       }
     })
-    .filter((task): task is GanttTask => task !== null)
+    .filter((task): task is GanttTask => task !== null),
 )
-
 
 const objectMapMarkers = computed(() => {
   const object = detail.value?.object
@@ -1428,6 +1760,17 @@ const objectMapMarkers = computed(() => {
     },
   ]
 })
+
+onMounted(async () => {
+  await fetchDetail()
+})
+
+watch(
+  () => route.params.id,
+  async () => {
+    await fetchDetail()
+  },
+)
 </script>
 
 <style scoped>
@@ -1459,7 +1802,10 @@ const objectMapMarkers = computed(() => {
 }
 
 .aside-section { display: flex; flex-direction: column; gap: 8px; }
-.aside-title { margin: 0 0 2px; font-size: 13px; font-weight: 600; color: #374151; text-transform: uppercase; letter-spacing: 0.04em; }
+.aside-title {
+  margin: 0 0 2px; font-size: 13px; font-weight: 600; color: #374151;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
 .aside-desc { margin: 0; font-size: 13px; color: #6b7280; line-height: 1.5; }
 .person-block { display: flex; flex-direction: column; }
 .person-role { font-size: 11px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.04em; }
@@ -1499,6 +1845,12 @@ const objectMapMarkers = computed(() => {
   background: #fff; border-radius: 16px; padding: 16px 18px;
   border: 1px solid #e5e7eb; box-shadow: 0 2px 8px rgba(15,23,42,0.04);
 }
+
+.card--issues {
+  padding: 0;
+  overflow: hidden;
+}
+
 .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .card-header h2 { margin: 0; font-size: 16px; font-weight: 600; color: #111827; }
 
@@ -1548,6 +1900,34 @@ const objectMapMarkers = computed(() => {
 .icon-btn--delete:hover {
   background: #fef2f2;
   border-color: #ef4444;
+}
+
+.progress-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 150px;
+}
+
+.progress-track {
+  position: relative;
+  width: 100px;
+  height: 8px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #6366f1 0%, #4f46e5 100%);
+  border-radius: 999px;
+}
+
+.progress-value {
+  font-size: 12px;
+  color: #6b7280;
+  white-space: nowrap;
 }
 
 .work-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
@@ -1623,9 +2003,10 @@ const objectMapMarkers = computed(() => {
   .detail-body { grid-template-columns: 1fr; }
   .main { padding: 16px 20px; }
 }
+
 @media (max-width: 768px) {
   .layout { grid-template-columns: 1fr; }
-  .sidebar { width: 100%; border-right: none; border-bottom: 1px solid #e5e7eb; }
   .form-row { grid-template-columns: 1fr; }
+  .progress-cell { min-width: 120px; }
 }
 </style>
