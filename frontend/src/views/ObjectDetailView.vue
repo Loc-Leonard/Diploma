@@ -139,7 +139,7 @@
               <h2>Виды работ</h2>
               <button
                 v-if="role === 'CUSTOMER'"
-                class="action-btn action-btn--small"
+                class="upload-btn"
                 @click="showWorkItemForm = !showWorkItemForm"
               >
                 {{ showWorkItemForm ? 'Отмена' : '+ Добавить этап' }}
@@ -1159,25 +1159,67 @@ function openCreateIssue() {
 
 async function submitCreateIssue(payload: any) {
   if (!issueBaseUrl.value) return
+
   issueCreateSubmitting.value = true
   issueCreateError.value = null
+
   try {
+    const createBody = {
+      title: payload.title,
+      description: payload.description,
+      due_date: payload.due_date,
+      classifier_code: payload.classifier_code,
+      comment: payload.comment,
+    }
+
     const res = await fetch(issueBaseUrl.value, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${auth.token}`,
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(createBody),
     })
+
     if (!res.ok) {
       const data = await res.json().catch(() => ({}))
-      throw new Error(data.error || 'Ошибка создания записи')
+      throw new Error(data.error ?? 'Не удалось создать запись')
     }
+
+    const createdIssue = await res.json()
+    const createdIssueId = createdIssue?.id
+
+    if (!createdIssueId) {
+      throw new Error('Сервер не вернул идентификатор созданной записи')
+    }
+
+    const files: File[] = Array.isArray(payload.files) ? payload.files : []
+
+    for (const file of files) {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('documenttype', 'OTHER')
+
+      const uploadRes = await fetch(`${API_BASE}/issues/${createdIssueId}/attachments`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${auth.token}`,
+        },
+        body: formData,
+      })
+
+      if (!uploadRes.ok) {
+        const data = await uploadRes.json().catch(() => ({}))
+        throw new Error(data.error ?? `Не удалось загрузить файл "${file.name}"`)
+      }
+    }
+
     showIssueCreateModal.value = false
     await fetchIssues()
+    selectedIssueId.value = createdIssueId
+    await fetchIssueDetail(createdIssueId)
   } catch (e: any) {
-    issueCreateError.value = e.message
+    issueCreateError.value = e.message ?? 'Не удалось создать запись'
   } finally {
     issueCreateSubmitting.value = false
   }
@@ -1813,12 +1855,7 @@ watch(
 .date-row { display: flex; justify-content: space-between; font-size: 13px; color: #374151; }
 .date-label { color: #9ca3af; }
 
-.action-btn {
-  width: 100%; padding: 9px 14px; border-radius: 10px;
-  border: 1px solid #e5e7eb; background: #fff;
-  font-size: 14px; font-weight: 600; color: #111827;
-  cursor: pointer; text-align: center;
-}
+
 .action-btn:hover:not(:disabled) { background: #f9fafb; }
 .action-btn:disabled { opacity: 0.5; cursor: default; }
 .action-btn--primary { background: #4f46e5; color: #fff; border-color: #4f46e5; }
@@ -1853,6 +1890,28 @@ watch(
 
 .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .card-header h2 { margin: 0; font-size: 16px; font-weight: 600; color: #111827; }
+
+.upload-btn {
+  padding: 8px 16px;
+  background: #4f46e5;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+
+.upload-btn:hover:not(:disabled) {
+  background: #4338ca;
+}
+
+.upload-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 
 .work-table-wrapper { overflow-x: auto; }
 .work-table { width: 100%; border-collapse: collapse; font-size: 14px; }
@@ -1968,16 +2027,40 @@ watch(
 .state--success { color: #166534; }
 
 .modal-overlay {
-  position: fixed; inset: 0; background: rgba(15,23,42,0.55);
-  display: flex; justify-content: center; align-items: center;
-  padding: 16px; z-index: 50;
+  position: fixed; 
+  inset: 0; 
+  background: rgba(15,23,42,0.55);
+  display: flex; 
+  justify-content: center; 
+  align-items: center;
+  padding: 16px; 
+  z-index: 3000;
 }
 
 .modal-card {
-  width: 100%; max-width: 520px; background: #fff;
-  border-radius: 16px; padding: 22px 24px 20px;
-  box-shadow: 0 20px 50px rgba(15,23,42,0.25); box-sizing: border-box;
+  width: 100%; 
+  max-width: 520px; 
+  background: #fff;
+  border-radius: 16px; 
+  padding: 22px 24px 20px;
+  box-shadow: 0 20px 50px rgba(15,23,42,0.25); 
+  box-sizing: border-box;
+  position: relative;
+  z-index: 3001;
 }
+
+.mini-map {
+  position: relative;
+  z-index: 1;
+}
+:deep(.leaflet-pane),
+:deep(.leaflet-top),
+:deep(.leaflet-bottom),
+:deep(.leaflet-control-container),
+:deep(.leaflet-control){
+  z-index: 10 !important;
+}
+
 .modal-card h2 { margin: 0 0 16px; font-size: 18px; font-weight: 600; color: #111827; }
 .modal-card .form-field { margin-bottom: 12px; }
 .modal-card textarea {

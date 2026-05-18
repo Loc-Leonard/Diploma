@@ -20,7 +20,7 @@
         <button
           v-if="canCreate"
           type="button"
-          class="action-btn action-btn--primary"
+          class="upload-btn"
           @click="$emit('create')"
         >
           {{ createButtonLabel }}
@@ -111,6 +111,14 @@ function fmtDateTime(value?: string | null) {
 </script>
 
 <style scoped>
+.section-actions{
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  justify-content: flex-end;
+  flex: 1;
+  flex-wrap: wrap;
+}
 .issues-section {
   background: #fff;
   border: 1px solid #e5e7eb;
@@ -136,12 +144,27 @@ function fmtDateTime(value?: string | null) {
   color: #111827;
 }
 
-.section-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  align-items: flex-end;
-  flex: 1;
+.upload-btn {
+  padding: 8px 16px;
+  background: #4f46e5;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.upload-btn:hover:not(:disabled) {
+  background: #4338ca;
+}
+
+.upload-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .issue-filters {
@@ -149,6 +172,7 @@ function fmtDateTime(value?: string | null) {
   gap: 8px;
   flex-wrap: wrap;
   justify-content: flex-end;
+  flex: 1;
 }
 
 .filter-pill {
