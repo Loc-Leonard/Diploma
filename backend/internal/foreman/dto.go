@@ -30,6 +30,9 @@ type WorkItemDTO struct {
 	PlannedEndDate   *time.Time `json:"planned_end_date,omitempty"`
 	SortOrder        int        `json:"sort_order"`
 	Status           string     `json:"status"`
+	Progress         float64    `json:"progress"`
+	ActualStartDate  *time.Time `json:"actual_start_date,omitempty"`
+	ActualEndDate    *time.Time `json:"actual_end_date,omitempty"`
 }
 
 type DeliveryDTO struct {

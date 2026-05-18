@@ -128,6 +128,9 @@ func (h *Handler) ObjectDetails(c *gin.Context) {
 			PlannedEndDate:   wi.PlannedEndDate,
 			SortOrder:        wi.SortOrder,
 			Status:           string(wi.Status),
+			Progress:         wi.Progress,
+			ActualStartDate:  wi.ActualStartDate,
+			ActualEndDate:    wi.ActualEndDate,
 		})
 	}
 
@@ -172,6 +175,7 @@ func buildObjectDTO(obj models.Object) ObjectDTO {
 }
 
 // POST /foreman/objects/:id/work-reports
+// POST /foreman/objects/:id/work-reports
 func (h *Handler) SubmitWorkReports(c *gin.Context) {
 	foremanID := auth.UserIDFromContext(c)
 	if foremanID == 0 {
@@ -205,28 +209,78 @@ func (h *Handler) SubmitWorkReports(c *gin.Context) {
 		return
 	}
 
-	for _, r := range req.Reports {
-		// Парсим дату из строки
-		date, err := time.Parse("2006-01-02", r.Date)
-		if err != nil {
-			// Пробуем другой формат с временем
-			date, err = time.Parse(time.RFC3339, r.Date)
+	err := h.db.Transaction(func(tx *gorm.DB) error {
+		touchedItems := make(map[uint]struct{})
+
+		for _, r := range req.Reports {
+			if r.WorkItemID == 0 {
+				return fmt.Errorf("work_item_id is required")
+			}
+			if r.Qty <= 0 {
+				return fmt.Errorf("qty must be greater than 0")
+			}
+
+			var item models.WorkItem
+			if err := tx.Where("id = ? AND object_id = ?", r.WorkItemID, obj.ID).First(&item).Error; err != nil {
+				return fmt.Errorf("work item %d not found for object", r.WorkItemID)
+			}
+
+			date, err := time.Parse("2006-01-02", r.Date)
 			if err != nil {
-				c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "invalid date format"})
-				return
+				date, err = time.Parse(time.RFC3339, r.Date)
+				if err != nil {
+					return fmt.Errorf("invalid date format")
+				}
+			}
+
+			report := models.WorkReport{
+				WorkItemID: r.WorkItemID,
+				ObjectID:   obj.ID,
+				ForemanID:  foremanID,
+				Qty:        float64(r.Qty),
+				Date:       date,
+				Status:     models.WorkReportStatusSubmitted,
+			}
+
+			if err := tx.Create(&report).Error; err != nil {
+				return fmt.Errorf("db error")
+			}
+
+			touchedItems[item.ID] = struct{}{}
+		}
+
+		for itemID := range touchedItems {
+			var item models.WorkItem
+			if err := tx.First(&item, itemID).Error; err != nil {
+				return fmt.Errorf("db error")
+			}
+
+			if err := recalcWorkItem(tx, &item); err != nil {
+				return fmt.Errorf("failed to recalc work item")
 			}
 		}
 
-		report := models.WorkReport{
-			WorkItemID: r.WorkItemID,
-			ObjectID:   obj.ID,
-			ForemanID:  foremanID,
-			Qty:        float64(r.Qty),
-			Date:       date,
-			Status:     models.WorkReportStatusSubmitted,
+		if err := recalcProgress(tx, obj.ID); err != nil {
+			return fmt.Errorf("failed to recalc object progress")
 		}
-		if err := h.db.Create(&report).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, models.ErrorResponse{Error: "db error"})
+
+		return nil
+	})
+
+	if err != nil {
+		switch err.Error() {
+		case "work_item_id is required", "qty must be greater than 0", "invalid date format":
+			c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: err.Error()})
+			return
+		case "db error", "failed to recalc work item", "failed to recalc object progress":
+			c.JSON(http.StatusInternalServerError, models.ErrorResponse{Error: err.Error()})
+			return
+		default:
+			if strings.Contains(err.Error(), "work item") && strings.Contains(err.Error(), "not found for object") {
+				c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: err.Error()})
+				return
+			}
+			c.JSON(http.StatusInternalServerError, models.ErrorResponse{Error: err.Error()})
 			return
 		}
 	}
@@ -637,4 +691,75 @@ func recalcProgress(db *gorm.DB, objectID uint) error {
 	return db.Model(&models.Object{}).
 		Where("id = ?", objectID).
 		Update("progress", objectProgress).Error
+}
+
+func clampProgress(v float64) float64 {
+	if v < 0 {
+		return 0
+	}
+	if v > 100 {
+		return 100
+	}
+	return math.Round(v*10) / 10
+}
+
+func recalcWorkItem(db *gorm.DB, item *models.WorkItem) error {
+	type agg struct {
+		Fact      float64
+		FirstDate *time.Time
+		LastDate  *time.Time
+	}
+
+	var a agg
+	if err := db.Raw(`
+		SELECT
+			COALESCE(SUM(qty), 0) AS fact,
+			MIN(date) AS first_date,
+			MAX(date) AS last_date
+		FROM work_reports
+		WHERE work_item_id = ?
+	`, item.ID).Scan(&a).Error; err != nil {
+		return err
+	}
+
+	progress := 0.0
+	if item.PlanQty > 0 {
+		progress = clampProgress((a.Fact / item.PlanQty) * 100)
+	}
+	item.Progress = progress
+
+	if a.Fact <= 0 {
+		item.Status = models.WorkItemStatusPlanned
+		item.ActualStartDate = nil
+		item.ActualEndDate = nil
+		return db.Save(item).Error
+	}
+
+	if a.FirstDate != nil && !a.FirstDate.IsZero() {
+		actualStart := *a.FirstDate
+		item.ActualStartDate = &actualStart
+	} else {
+		item.ActualStartDate = nil
+	}
+
+	if a.Fact >= item.PlanQty && item.PlanQty > 0 {
+		item.Status = models.WorkItemStatusDone
+
+		if a.LastDate != nil && !a.LastDate.IsZero() {
+			actualEnd := *a.LastDate
+			item.ActualEndDate = &actualEnd
+		} else {
+			item.ActualEndDate = nil
+		}
+	} else {
+		now := time.Now()
+		if item.PlannedEndDate != nil && !item.PlannedEndDate.IsZero() && item.PlannedEndDate.Before(now) {
+			item.Status = models.WorkItemStatusDelayed
+		} else {
+			item.Status = models.WorkItemStatusInProgress
+		}
+		item.ActualEndDate = nil
+	}
+
+	return db.Save(item).Error
 }
