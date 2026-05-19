@@ -4,16 +4,20 @@
       <div class="sidebar-top">
         <div class="sidebar-logo">{{ greeting }}</div>
         <nav class="sidebar-nav">
-          <button class="nav-item" :class="{ 'nav-item--active': isChecksActive }" @click="goToChecks">
-            Проверки
-          </button>
-          <button class="nav-item" disabled>График</button>
-          <button class="nav-item" disabled>Замечания</button>
           <button class="nav-item" :class="{ 'nav-item--active': isObjectsActive }" @click="goToObjects">
             <span>Объекты</span>
             <span v-if="pendingCount > 0" class="nav-badge">{{ pendingCount }}</span>
           </button>
-          <button class="nav-item" disabled>Справочники</button>
+          <button class="nav-item" :class="{ 'nav-item--active': isChecksActive }" @click="goToChecks">
+            Проверки
+          </button>
+          <button class="nav-item" :class="{ 'nav-item--active': route.name === 'inspector-issues' }"
+          @click="router.push({ name: 'inspector-issues' })"
+          >
+          Нарушения
+          </button>
+          
+
         </nav>
       </div>
 

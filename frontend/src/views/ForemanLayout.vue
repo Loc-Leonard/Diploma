@@ -10,8 +10,14 @@
             >
             Объекты
           </button>
-          <button class="nav-item" disabled>Замечания</button>
-          <button class="nav-item" disabled>Справочники</button>
+          <button class="nav-item" :class="{ 'nav-item--active': route.name === 'foreman-issues' }"
+          @click="router.push({ name: 'foreman-issues' })"
+          >
+          <span>Замечания</span>
+          <span v-if="notifications.unreadCount > 0" class="nav-badge">
+            {{ notifications.unreadCount }}
+          </span>
+          </button>
         </nav>
       </div>
       <div class="sidebar-bottom">
@@ -25,13 +31,15 @@
 </template>
 <script setup lang="ts">
 
-import { computed } from 'vue'
+import { computed, onBeforeMount, onBeforeUnmount, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useForemanNotificationsStore } from '@/stores/foremanNotifications'
 
 const auth = useAuthStore()
 const router = useRouter()
 const route = useRoute()
+const notifications = useForemanNotificationsStore()
 
 // Приветствие в левом верхнем углу
 const greeting = computed(() => {
@@ -41,15 +49,28 @@ const greeting = computed(() => {
   const u = auth.user
   return u?.full_name ? `Добрый день, ${u.full_name}` : 'Добрый день'
 })
+
+function onIssueClick() {
+  notifications.markAsRead()
+  router.push({ name: 'foreman-issues' })
+}
+
 function logout() {
   auth.clearAuth()
   router.push({ name: 'login' })
+  notifications.stopPolling()
 }
+
+onMounted(()=> {
+  notifications.startPolling()
+})
+
+onBeforeUnmount(()=> {
+  notifications.stopPolling()
+})
 </script>
 <style scoped>
 .sidebar {
-  grid-column: 1;
-  width: 206px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -59,9 +80,10 @@ function logout() {
 }
 
 .sidebar-logo {
-  font-size: 20px;
+  font-size: 15px;
   font-weight: 700;
   margin-bottom: 24px;
+  color: #111827;
 }
 
 .sidebar-nav {
@@ -71,6 +93,9 @@ function logout() {
 }
 
 .nav-item {
+  display: flex; 
+  align-items: center;
+  justify-content: space-between;
   text-align: left;
   padding: 8px 10px;
   border-radius: 8px;
@@ -79,12 +104,35 @@ function logout() {
   font-size: 14px;
   color: #4b5563;
   cursor: pointer;
+  transition: default;
 }
 
 .nav-item--active {
   background: #eef2ff;
   color: #4338ca;
 }
+
+.nav-badge {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #dc2626; /* красный */
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 6px;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.05); }
+}
+
 
 .nav-item[disabled] {
   opacity: 0.5;

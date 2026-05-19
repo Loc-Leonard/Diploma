@@ -13,6 +13,9 @@ import InspectorObjectsView from '../views/InspectorObjectsView.vue'
 import InspectorObjectView from '../views/InspectorObjectView.vue'
 import ObjectDetailView from '../views/ObjectDetailView.vue'
 import { useAuthStore } from '../stores/auth'
+import CustomerIssuesView from '../views/CustomerIssuesView.vue'
+import ForemanIssuesView from '../views/ForemanIssuesView.vue'
+import InspectorIssuesView from '../views/InspectorIssuesView.vue'
 
 const routes: RouteRecordRaw[] = [
   { path: '/login', name: 'login', component: LoginView },
@@ -48,6 +51,12 @@ const routes: RouteRecordRaw[] = [
     component: ObjectDetailView,
     meta: { requiresAuth: true, customerOnly: true },
   },
+  {
+    path: '/customer/issues',
+    name: 'customer-issues',
+    component: CustomerIssuesView,
+    meta: { requiresAuth: true, customerOnly: true },
+  },
   
   // ===== FOREMAN =====
   {
@@ -60,6 +69,12 @@ const routes: RouteRecordRaw[] = [
     path: '/foreman/objects/:id',
     name: 'foreman-object',
     component: ObjectDetailView,
+    meta: { requiresAuth: true, foremanOnly: true },
+  },
+  {
+    path: '/foreman/issues',
+    name: 'foreman-issues',
+    component: ForemanIssuesView,
     meta: { requiresAuth: true, foremanOnly: true },
   },
   
@@ -86,6 +101,13 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, inspectorOnly: true },
   },
   { path: '/:pathMatch(.*)*', redirect: '/login' },
+
+{
+  path: '/inspector/issues',
+  name: 'inspector-issues',
+  component: InspectorIssuesView,
+  meta: { requiresAuth: true, inspectorOnly: true },
+},
 ]
 
 

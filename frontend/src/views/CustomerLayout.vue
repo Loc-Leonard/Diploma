@@ -10,10 +10,11 @@
         >
           Объекты
         </button>
-        <button class="nav-item" disabled>График</button>
-        <button class="nav-item" disabled>Замечания</button>
-        <button class="nav-item" disabled>Проверки</button>
-        <button class="nav-item" disabled>Справочники</button>
+        <button class="nav-item" :class="{ 'nav-item--active': route.name === 'customer-issues' }"
+        @click="router.push({ name: 'customer-issues' })"
+        >
+        Замечания
+        </button>
       </nav>
     </div>
     <div class="sidebar-bottom">
