@@ -30,6 +30,7 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB, storageRoot string) {
 		customer.GET("/objects/:id/issues", h.ListCustomerObjectIssues)
 		customer.POST("/objects/:id/issues", h.CreateRemark)
 		customer.POST("/issues/:id/review", h.ReviewRemark)
+		customer.GET("/issues", h.ListMyIssues)
 	}
 
 	foreman := r.Group("/foreman")
@@ -38,6 +39,8 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB, storageRoot string) {
 		foreman.GET("/objects/:id/issues", h.ListForemanObjectIssues)
 		foreman.POST("/issues/:id/resolve", h.ResolveIssue)
 		foreman.PATCH("/issues/:id", h.UpdateForemanIssue)
+		foreman.GET("/issues", h.ListMyIssues)
+		foreman.GET("/issues/unread-count", h.GetUnreadIssuesCount)
 	}
 
 	inspector := r.Group("/inspector")
@@ -46,6 +49,7 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB, storageRoot string) {
 		inspector.GET("/objects/:id/issues", h.ListInspectorObjectIssues)
 		inspector.POST("/objects/:id/issues", h.CreateViolation)
 		inspector.POST("/issues/:id/review", h.ReviewViolation)
+		inspector.GET("/issues", h.ListMyIssues)
 	}
 
 	common := r.Group("/issues")
@@ -56,6 +60,53 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB, storageRoot string) {
 		common.POST("/:id/comments", h.AddComment)
 		common.POST("/:id/attachments", h.UploadAttachment)
 	}
+}
+func (h *Handler) GetUnreadIssuesCount(c *gin.Context) {
+	userID := auth.UserIDFromContext(c)
+
+	var count int64
+	if err := h.db.Table("issues").
+		Joins("INNER JOIN objects o ON o.id = issues.object_id").
+		Where("o.foreman_user_id = ?", userID).
+		Where("issues.status IN ?", []models.IssueStatus{
+			models.IssueStatusOpen,
+			models.IssueStatusInProgress,
+		}).
+		Count(&count).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{Error: "db error"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"count": count})
+}
+
+func (h *Handler) ListMyIssues(c *gin.Context) {
+	userID := auth.UserIDFromContext(c)
+	role := models.Role(c.GetString("role"))
+
+	var issues []models.Issue
+	query := h.db.Table("issues").
+		Select("issues.*").
+		Joins("INNER JOIN objects o ON o.id = issues.Object_id")
+
+	switch role {
+	case models.RoleCustomer:
+		query = query.Where("o.customer_control_user_id = ?", userID)
+	case models.RoleForeman:
+		query = query.Where("o.foreman_user_id = ?", userID)
+	case models.RoleInspector:
+		query = query.Where("o.inspector_user_id = ?", userID)
+	default:
+		c.JSON(http.StatusForbidden, models.ErrorResponse{Error: "access denied"})
+		return
+	}
+
+	query.
+		Order("issues.created_at DESC").
+		Preload("Attachments").
+		Find(&issues)
+
+	c.JSON(http.StatusOK, h.toIssueListDTOs(issues))
 }
 
 func (h *Handler) ListCustomerObjectIssues(c *gin.Context) {
