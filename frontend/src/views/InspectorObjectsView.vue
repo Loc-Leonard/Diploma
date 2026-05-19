@@ -7,14 +7,9 @@
           🗺 Показать на карте
         </button>
       </div>
-
       <div class="customer-header-right">
         <div class="search-wrapper">
-          <input
-            v-model="search"
-            type="text"
-            placeholder="Поиск по названию, городу, адресу"
-          />
+          <input v-model="search" type="text" placeholder="Поиск по названию, городу, адресу" />
         </div>
         <select v-model="statusFilter" class="filter-select">
           <option value="">Все статусы</option>
@@ -26,12 +21,12 @@
       </div>
     </header>
 
+    <!-- Секция: требуют подтверждения -->
     <section v-if="pendingObjects.length" class="pending-section">
       <div class="section-header">
         <h2>Требуют подтверждения</h2>
         <span class="pending-pill">{{ pendingObjects.length }}</span>
       </div>
-
       <div class="object-grid">
         <article
           v-for="obj in pendingObjects"
@@ -43,51 +38,30 @@
               <div class="object-name">{{ obj.name }}</div>
               <div class="object-address">{{ obj.city }}, {{ obj.address }}</div>
             </div>
-            <span class="status-chip status-chip--pending">
-              Ожидает подтверждения
-            </span>
+            <span class="status-chip status-chip--pending">Ожидает подтверждения</span>
           </div>
-
           <div class="object-meta">
             <div><span class="label">Прораб:</span> {{ obj.foreman_name || '—' }}</div>
             <div><span class="label">Плановая дата:</span> {{ formatDate(obj.planned_start_date) }}</div>
           </div>
-
-          <div class="object-progress">
-            <div class="progress-bar">
-              <div
-                class="progress-bar-fill"
-                :style="{ width: normalizedProgress(obj.progress) + '%' }"
-              ></div>
-            </div>
-            <span class="progress-text">{{ normalizedProgress(obj.progress) }}%</span>
-          </div>
-
           <div class="object-actions">
-            <button class="primary-btn" @click="openApprovalModal(obj)">
-              Рассмотреть
-            </button>
+            <button class="primary-btn" @click="openApprovalModal(obj)">Рассмотреть</button>
           </div>
         </article>
       </div>
     </section>
 
+    <!-- Секция: все объекты -->
     <section class="list-section">
       <div class="section-header">
         <h2>Все объекты</h2>
         <span class="count-text">{{ filteredObjects.length }}</span>
       </div>
-
       <div v-if="loading" class="state">Загружаю объекты...</div>
       <div v-else-if="error" class="state state--error">{{ error }}</div>
       <div v-else-if="!filteredObjects.length" class="state">Объектов пока нет</div>
-
       <div v-else class="object-grid">
-        <article
-          v-for="obj in filteredObjects"
-          :key="obj.id"
-          class="object-card"
-        >
+        <article v-for="obj in filteredObjects" :key="obj.id" class="object-card">
           <div class="object-top">
             <div>
               <div class="object-name">{{ obj.name }}</div>
@@ -97,23 +71,12 @@
               {{ statusLabel(obj.status) }}
             </span>
           </div>
-
           <div class="object-meta">
             <div><span class="label">Прораб:</span> {{ obj.foreman_name || '—' }}</div>
             <div><span class="label">Плановая дата:</span> {{ formatDate(obj.planned_start_date) }}</div>
           </div>
-
-          <div class="object-progress">
-            <div class="progress-bar">
-              <div
-                class="progress-bar-fill"
-                :style="{ width: normalizedProgress(obj.progress) + '%' }"
-              ></div>
-            </div>
-            <span class="progress-text">{{ normalizedProgress(obj.progress) }}%</span>
-          </div>
-
           <div class="object-actions">
+            <!-- ещё не подтверждён → модалка -->
             <button
               v-if="obj.has_pending_action || obj.status === 'WAITING_INSPECTOR_CONFIRMATION'"
               class="primary-btn"
@@ -122,6 +85,7 @@
               Рассмотреть
             </button>
 
+            <!-- активный / завершённый → отдельная страница -->
             <button
               v-else-if="obj.status === 'ACTIVE' || obj.status === 'FINISHED'"
               class="secondary-btn"
@@ -134,9 +98,11 @@
       </div>
     </section>
 
+    <!-- Модалка -->
     <Teleport to="body">
       <div v-if="modal.open" class="modal-overlay" @click.self="closeModal">
         <div class="modal">
+
           <div class="modal-header">
             <h2>{{ modal.obj?.has_pending_action ? 'Подтверждение активации' : 'Объект' }}</h2>
             <button class="modal-close" @click="closeModal">✕</button>
@@ -154,46 +120,32 @@
                 <span class="label">Прораб</span>
                 <span>{{ modal.details.foreman_name || '—' }}</span>
               </div>
-
               <div class="modal-detail-row">
                 <span class="label">Статус</span>
-                <span
-                  class="status-chip"
-                  :class="statusClass(modal.details.status)"
-                  style="font-size: 12px"
-                >
+                <span class="status-chip" :class="statusClass(modal.details.status)" style="font-size:12px">
                   {{ statusLabel(modal.details.status) }}
                 </span>
               </div>
-
               <div class="modal-detail-row">
                 <span class="label">Плановое начало</span>
                 <span>{{ formatDate(modal.details.planned_start_date) }}</span>
               </div>
-
               <div class="modal-detail-row">
                 <span class="label">Плановое окончание</span>
                 <span>{{ formatDate(modal.details.planned_end_date) }}</span>
               </div>
-
               <div v-if="modal.details.description" class="modal-detail-row">
                 <span class="label">Описание</span>
                 <span>{{ modal.details.description }}</span>
               </div>
-
-              <div
-                v-if="modal.details.init_checklist_json"
-                class="modal-detail-row modal-detail-col"
-              >
+              <div v-if="modal.details.init_checklist_json" class="modal-detail-row modal-detail-col">
                 <span class="label">Чеклист</span>
                 <pre class="checklist-pre">{{ formatChecklist(modal.details.init_checklist_json) }}</pre>
               </div>
-
               <div v-if="modal.details.init_act_file_path" class="modal-detail-row">
                 <span class="label">Акт</span>
                 <span>{{ modal.details.init_act_file_path }}</span>
               </div>
-
               <div v-if="modal.details.activation_reject_reason" class="reject-notice">
                 <span class="label">Причина предыдущего отклонения:</span>
                 <span>{{ modal.details.activation_reject_reason }}</span>
@@ -210,9 +162,7 @@
                 placeholder="Укажите причину отклонения активации..."
                 rows="3"
               />
-              <div v-if="modal.submitError" class="state state--error">
-                {{ modal.submitError }}
-              </div>
+              <div v-if="modal.submitError" class="state state--error">{{ modal.submitError }}</div>
             </div>
           </div>
 
@@ -223,63 +173,45 @@
 
             <template v-else-if="modal.mode === 'idle'">
               <button class="secondary-btn" @click="closeModal">Закрыть</button>
-              <button
-                class="reject-btn"
-                @click="modal.mode = 'reject'"
-                :disabled="modal.submitting"
-              >
+              <button class="reject-btn" @click="modal.mode = 'reject'" :disabled="modal.submitting">
                 Отклонить
               </button>
-              <button
-                class="primary-btn"
-                @click="submitDecision('APPROVE')"
-                :disabled="modal.submitting"
-              >
+              <button class="primary-btn" @click="submitDecision('APPROVE')" :disabled="modal.submitting">
                 {{ modal.submitting ? 'Подтверждаю...' : 'Подтвердить' }}
               </button>
             </template>
 
             <template v-else-if="modal.mode === 'reject'">
-              <button
-                class="secondary-btn"
-                @click="modal.mode = 'idle'"
-                :disabled="modal.submitting"
-              >
+              <button class="secondary-btn" @click="modal.mode = 'idle'" :disabled="modal.submitting">
                 Назад
               </button>
-              <button
-                class="reject-btn"
-                @click="submitDecision('REJECT')"
-                :disabled="modal.submitting"
-              >
+              <button class="reject-btn" @click="submitDecision('REJECT')" :disabled="modal.submitting">
                 {{ modal.submitting ? 'Отклоняю...' : 'Подтвердить отклонение' }}
               </button>
             </template>
           </div>
+
         </div>
       </div>
     </Teleport>
 
+    <!-- MAP -->
     <div v-if="showMap" class="modal-overlay" @click.self="showMap = false">
       <div class="modal-card modal-card--map">
         <div class="modal-map-header">
           <h2>Объекты на карте</h2>
           <button class="close-btn" @click="showMap = false">✕</button>
         </div>
-
         <AppMap
           v-if="mapMarkers.length"
           :markers="mapMarkers"
           height="420px"
         />
-
-        <div v-else class="map-placeholder">
-          <div class="map-placeholder-inner">
+          <div v-else class="map-placeholder">
+            <div class="map-placeholder-inner">
             <span class="map-icon">🗺</span>
             <span>Нет объектов для отображения на карте</span>
-            <span class="map-hint">
-              {{ filteredObjects.length }} Объектов для отображения
-            </span>
+            <span class="map-hint">{{ objects.length }} объект(ов) для отображения</span>
           </div>
         </div>
       </div>
@@ -300,11 +232,7 @@ const auth = useAuthStore()
 const showMap = ref(false)
 const router = useRouter()
 
-type InspectorObjectStatus =
-  | 'PLANNED'
-  | 'WAITING_INSPECTOR_CONFIRMATION'
-  | 'ACTIVE'
-  | 'FINISHED'
+type InspectorObjectStatus = 'PLANNED' | 'WAITING_INSPECTOR_CONFIRMATION' | 'ACTIVE' | 'FINISHED'
 
 type InspectorObjectItem = {
   id: number
@@ -317,7 +245,6 @@ type InspectorObjectItem = {
   has_pending_action: boolean
   lat: number
   lng: number
-  progress: number
 }
 
 type ObjectDetails = {
@@ -374,18 +301,14 @@ const pendingObjects = notifications.pendingObjects
 
 const filteredObjects = computed(() => {
   const q = search.value.trim().toLowerCase()
-
-  return objects.value.filter((o) => {
+  return objects.value.filter(o => {
     const matchesSearch =
       !q ||
       o.name.toLowerCase().includes(q) ||
       o.city.toLowerCase().includes(q) ||
       o.address.toLowerCase().includes(q) ||
       (o.foreman_name || '').toLowerCase().includes(q)
-
-    const matchesStatus =
-      !statusFilter.value || o.status === statusFilter.value
-
+    const matchesStatus = !statusFilter.value || o.status === statusFilter.value
     return matchesSearch && matchesStatus
   })
 })
@@ -393,19 +316,13 @@ const filteredObjects = computed(() => {
 async function fetchObjects() {
   loading.value = true
   error.value = null
-
   try {
     const params = new URLSearchParams()
     if (statusFilter.value) params.set('status', statusFilter.value)
-
     const res = await fetch(`${API_BASE}/inspector/objects?${params}`, {
       headers: { Authorization: `Bearer ${auth.token}` },
     })
-
-    if (!res.ok) {
-      throw new Error((await res.json().catch(() => ({}))).error || 'Ошибка загрузки')
-    }
-
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Ошибка загрузки')
     objects.value = await res.json()
   } catch (e: any) {
     error.value = e.message || 'Ошибка'
@@ -429,23 +346,25 @@ async function fetchObjectDetails(id: number) {
     }
 
     const data = await res.json()
-    const core = data.object
+console.log('INSPECTOR DETAILS', data)
 
-    modal.details = {
-      id: core.id,
-      name: core.name ?? '',
-      city: core.city ?? '',
-      address: core.address ?? '',
-      description: core.description ?? '',
-      status: core.status ?? 'PLANNED',
-      foreman_name: core.foreman?.full_name ?? '',
-      planned_start_date: core.planned_start_date ?? null,
-      planned_end_date: core.planned_end_date ?? null,
-      actual_start_date: core.actual_start_date ?? null,
-      init_checklist_json: core.init_checklist_json ?? '',
-      init_act_file_path: core.init_act_file_path ?? '',
-      activation_reject_reason: core.activation_reject_reason ?? '',
-    }
+const core = data.object  // ← вот это добавилось
+
+modal.details = {
+  id: core.id,
+  name: core.name ?? '',
+  city: core.city ?? '',
+  address: core.address ?? '',
+  description: core.description ?? '',
+  status: core.status ?? 'PLANNED',
+  foreman_name: core.foreman?.full_name ?? '',
+  planned_start_date: core.planned_start_date ?? null,
+  planned_end_date: core.planned_end_date ?? null,
+  actual_start_date: core.actual_start_date ?? null,
+  init_checklist_json: core.init_checklist_json ?? '',
+  init_act_file_path: core.init_act_file_path ?? '',
+  activation_reject_reason: core.activation_reject_reason ?? '',
+}
   } catch (e: any) {
     modal.fetchError = e.message
   } finally {
@@ -487,22 +406,18 @@ async function submitDecision(decision: 'APPROVE' | 'REJECT') {
 
   modal.submitting = true
   modal.submitError = null
-
   try {
     const body: Record<string, string> = { decision }
     if (decision === 'REJECT') body.rejection_reason = modal.rejectReason.trim()
 
-    const res = await fetch(
-      `${API_BASE}/inspector/objects/${modal.obj.id}/activation-decision`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${auth.token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
+    const res = await fetch(`${API_BASE}/inspector/objects/${modal.obj.id}/activation-decision`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${auth.token}`,
+        'Content-Type': 'application/json',
       },
-    )
+      body: JSON.stringify(body),
+    })
 
     if (!res.ok) {
       throw new Error((await res.json().catch(() => ({}))).error || 'Ошибка отправки')
@@ -520,17 +435,9 @@ async function submitDecision(decision: 'APPROVE' | 'REJECT') {
   }
 }
 
-function normalizedProgress(value?: number | null) {
-  if (typeof value !== 'number' || Number.isNaN(value)) return 0
-  return Math.min(100, Math.max(0, Math.round(value)))
-}
-
 function formatChecklist(json: string) {
-  try {
-    return JSON.stringify(JSON.parse(json), null, 2)
-  } catch {
-    return json
-  }
+  try { return JSON.stringify(JSON.parse(json), null, 2) }
+  catch { return json }
 }
 
 function statusLabel(status: InspectorObjectStatus) {
@@ -615,7 +522,7 @@ onMounted(fetchObjects)
   color: #374151;
 }
 
-.modal-card {
+.modal-card{
   width: 100%;
   max-width: 560px;
   background: #ffffff;
@@ -667,22 +574,10 @@ onMounted(fetchObjects)
   margin-bottom: 18px;
 }
 
-.customer-title {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 600;
-  color: #111827;
-}
+.customer-title { margin: 0; font-size: 22px; font-weight: 600; color: #111827; }
 
-.customer-header-right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.search-wrapper {
-  width: 280px;
-}
+.customer-header-right { display: flex; align-items: center; gap: 12px; }
+.search-wrapper { width: 280px; }
 
 .search-wrapper input,
 .filter-select {
@@ -694,10 +589,7 @@ onMounted(fetchObjects)
   font-size: 14px;
 }
 
-.pending-section,
-.list-section {
-  margin-bottom: 20px;
-}
+.pending-section, .list-section { margin-bottom: 20px; }
 
 .section-header {
   display: flex;
@@ -705,18 +597,8 @@ onMounted(fetchObjects)
   gap: 10px;
   margin-bottom: 12px;
 }
-
-.section-header h2 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.pending-pill,
-.count-text {
-  font-size: 13px;
-  color: #6b7280;
-}
+.section-header h2 { margin: 0; font-size: 16px; font-weight: 600; }
+.pending-pill, .count-text { font-size: 13px; color: #6b7280; }
 
 .object-grid {
   display: grid;
@@ -731,7 +613,6 @@ onMounted(fetchObjects)
   border: 1px solid #e5e7eb;
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
 }
-
 .object-card--pending {
   border-color: #fca5a5;
   box-shadow: 0 10px 24px rgba(220, 38, 38, 0.08);
@@ -745,88 +626,24 @@ onMounted(fetchObjects)
   margin-bottom: 12px;
 }
 
-.object-name {
-  font-size: 16px;
-  font-weight: 600;
-  color: #111827;
-}
+.object-name { font-size: 16px; font-weight: 600; color: #111827; }
+.object-address { margin-top: 4px; font-size: 13px; color: #6b7280; }
 
-.object-address {
-  margin-top: 4px;
-  font-size: 13px;
-  color: #6b7280;
-}
+.object-meta { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #374151; }
+.label { color: #6b7280; }
 
-.object-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: 13px;
-  color: #374151;
-}
+.object-actions { margin-top: 14px; display: flex; justify-content: flex-end; }
 
-.label {
-  color: #6b7280;
-}
-
-.object-progress {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.progress-bar {
-  flex: 1;
-  height: 5px;
-  background: #e5e7eb;
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.progress-bar-fill {
-  height: 100%;
-  background: #8b5cf6;
-  border-radius: 999px;
-}
-
-.progress-text {
-  font-size: 12px;
-  color: #6b7280;
-  min-width: 32px;
-  text-align: right;
-}
-
-.object-actions {
-  margin-top: 14px;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.primary-btn,
-.secondary-btn {
+.primary-btn, .secondary-btn {
   padding: 8px 14px;
   border-radius: 999px;
   border: none;
   font-size: 14px;
   cursor: pointer;
 }
-
-.primary-btn {
-  background: #c4b5fd;
-  color: #111827;
-}
-
-.primary-btn:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
-.secondary-btn {
-  background: #ffffff;
-  color: #374151;
-  border: 1px solid #d1d5db;
-}
+.primary-btn { background: #c4b5fd; color: #111827; }
+.primary-btn:disabled { opacity: 0.6; cursor: default; }
+.secondary-btn { background: #ffffff; color: #374151; border: 1px solid #d1d5db; }
 
 .status-chip {
   display: inline-flex;
@@ -836,36 +653,15 @@ onMounted(fetchObjects)
   font-size: 12px;
   white-space: nowrap;
 }
+.status-chip--planned  { background: #e5e7eb; color: #374151; }
+.status-chip--pending  { background: #fee2e2; color: #b91c1c; }
+.status-chip--active   { background: #dcfce7; color: #166534; }
+.status-chip--finished { background: #dbeafe; color: #1d4ed8; }
 
-.status-chip--planned {
-  background: #e5e7eb;
-  color: #374151;
-}
+.state { font-size: 14px; color: #6b7280; }
+.state--error { color: #b91c1c; }
 
-.status-chip--pending {
-  background: #fee2e2;
-  color: #b91c1c;
-}
-
-.status-chip--active {
-  background: #dcfce7;
-  color: #166534;
-}
-
-.status-chip--finished {
-  background: #dbeafe;
-  color: #1d4ed8;
-}
-
-.state {
-  font-size: 14px;
-  color: #6b7280;
-}
-
-.state--error {
-  color: #b91c1c;
-}
-
+/* ===== Модалка ===== */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -896,13 +692,7 @@ onMounted(fetchObjects)
   border-bottom: 1px solid #e5e7eb;
   flex-shrink: 0;
 }
-
-.modal-header h2 {
-  margin: 0;
-  font-size: 17px;
-  font-weight: 600;
-  color: #111827;
-}
+.modal-header h2 { margin: 0; font-size: 17px; font-weight: 600; color: #111827; }
 
 .modal-close {
   background: none;
@@ -914,11 +704,7 @@ onMounted(fetchObjects)
   border-radius: 6px;
   line-height: 1;
 }
-
-.modal-close:hover {
-  background: #f3f4f6;
-  color: #374151;
-}
+.modal-close:hover { background: #f3f4f6; color: #374151; }
 
 .modal-body {
   padding: 20px 24px;
@@ -926,25 +712,10 @@ onMounted(fetchObjects)
   flex: 1;
 }
 
-.modal-object-name {
-  font-size: 16px;
-  font-weight: 600;
-  color: #111827;
-  margin-bottom: 4px;
-}
+.modal-object-name { font-size: 16px; font-weight: 600; color: #111827; margin-bottom: 4px; }
+.modal-object-address { font-size: 13px; color: #6b7280; margin-bottom: 16px; }
 
-.modal-object-address {
-  font-size: 13px;
-  color: #6b7280;
-  margin-bottom: 16px;
-}
-
-.modal-details {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-bottom: 8px;
-}
+.modal-details { display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px; }
 
 .modal-detail-row {
   display: flex;
@@ -953,21 +724,9 @@ onMounted(fetchObjects)
   font-size: 14px;
   color: #374151;
 }
-
-.modal-detail-row .label {
-  color: #6b7280;
-  min-width: 160px;
-  flex-shrink: 0;
-}
-
-.modal-detail-col {
-  flex-direction: column;
-  gap: 6px;
-}
-
-.modal-detail-col .label {
-  min-width: unset;
-}
+.modal-detail-row .label { color: #6b7280; min-width: 160px; flex-shrink: 0; }
+.modal-detail-col { flex-direction: column; gap: 6px; }
+.modal-detail-col .label { min-width: unset; }
 
 .checklist-pre {
   font-size: 12px;
@@ -993,21 +752,9 @@ onMounted(fetchObjects)
   gap: 4px;
 }
 
-.reject-form {
-  margin-top: 16px;
-}
-
-.reject-label {
-  display: block;
-  font-size: 14px;
-  font-weight: 500;
-  color: #374151;
-  margin-bottom: 8px;
-}
-
-.required {
-  color: #dc2626;
-}
+.reject-form { margin-top: 16px; }
+.reject-label { display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 8px; }
+.required { color: #dc2626; }
 
 .reject-textarea {
   width: 100%;
@@ -1019,11 +766,7 @@ onMounted(fetchObjects)
   box-sizing: border-box;
   font-family: inherit;
 }
-
-.reject-textarea:focus {
-  outline: none;
-  border-color: #9524c9;
-}
+.reject-textarea:focus { outline: none; border-color: #9524c9; }
 
 .modal-footer {
   display: flex;
@@ -1043,15 +786,8 @@ onMounted(fetchObjects)
   background: #fee2e2;
   color: #b91c1c;
 }
-
-.reject-btn:hover {
-  background: #fecaca;
-}
-
-.reject-btn:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
+.reject-btn:hover { background: #fecaca; }
+.reject-btn:disabled { opacity: 0.6; cursor: default; }
 
 @media (max-width: 768px) {
   .modal-card--map {
@@ -1059,7 +795,6 @@ onMounted(fetchObjects)
     max-width: calc(100vw - 32px);
     padding: 16px;
   }
-
   .map-placeholder {
     height: 280px;
   }

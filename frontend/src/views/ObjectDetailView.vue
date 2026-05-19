@@ -415,6 +415,7 @@
         :mode="issueCreateMode"
         :submitting="issueCreateSubmitting"
         :error="issueCreateError"
+        :preset-object-id="detail?.object.id"
         @close="showIssueCreateModal = false"
         @submit="submitCreateIssue"
       />
