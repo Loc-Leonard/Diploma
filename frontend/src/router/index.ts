@@ -4,13 +4,10 @@ import ChangePasswordView from '../views/ChangePasswordView.vue'
 import AdminUsersView from '../views/AdminUsersView.vue'
 import CustomerObjectsView from '../views/CustomerObjectsView.vue'
 import CustomerObjectCreate from '../views/CustomerObjectCreate.vue'
-import CustomerObjectView from '../views/CustomerObjectView.vue'
 import ForemanObjectsView from '../views/ForemanObjectsView.vue'
-import ForemanObjectView from '../views/ForemanObjectView.vue'
 import InspectorLayout from '@/views/InspectorLayout.vue'
 import InspectorDashboardView from '../views/InspectorDashboardView.vue'
 import InspectorObjectsView from '../views/InspectorObjectsView.vue'
-import InspectorObjectView from '../views/InspectorObjectView.vue'
 import ObjectDetailView from '../views/ObjectDetailView.vue'
 import { useAuthStore } from '../stores/auth'
 import CustomerIssuesView from '../views/CustomerIssuesView.vue'
@@ -80,20 +77,12 @@ const routes: RouteRecordRaw[] = [
   
   // ===== INSPECTOR =====
   {
-    path: '/inspector',
-    component: InspectorLayout,
-    meta: { requiresAuth: true, inspectorOnly: true },
-    children: [
-      { path: '', redirect: { name: 'inspector-checks' } },
-      { path: 'checks', name: 'inspector-checks', component: InspectorDashboardView },
-      {
-        path: 'objects',
-        name: 'inspector-objects',
-        component: () => import('../views/InspectorObjectsView.vue'),
-      },
-    ],
+    path: '/inspector/objects',
+    name: 'inspector-objects',
+    component: InspectorObjectsView,
+    meta: {requiresAuth: true, inspectorOnly: true}
   },
-  // Detail инспектора — вне InspectorLayout, чтобы занять весь экран
+  
   {
     path: '/inspector/objects/:id',
     name: 'inspector-object-details',
@@ -102,12 +91,12 @@ const routes: RouteRecordRaw[] = [
   },
   { path: '/:pathMatch(.*)*', redirect: '/login' },
 
-{
-  path: '/inspector/issues',
-  name: 'inspector-issues',
-  component: InspectorIssuesView,
-  meta: { requiresAuth: true, inspectorOnly: true },
-},
+  {
+    path: '/inspector/issues',
+    name: 'inspector-issues',
+    component: InspectorIssuesView,
+    meta: { requiresAuth: true, inspectorOnly: true },
+  },
 ]
 
 
