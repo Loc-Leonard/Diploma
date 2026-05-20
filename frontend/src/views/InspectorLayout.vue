@@ -1,5 +1,4 @@
 <template>
-  <div class="customer-layout">
     <aside class="sidebar">
       <div class="sidebar-top">
         <div class="sidebar-logo">{{ greeting }}</div>
@@ -8,9 +7,9 @@
             <span>Объекты</span>
             <span v-if="pendingCount > 0" class="nav-badge">{{ pendingCount }}</span>
           </button>
-          <button class="nav-item" :class="{ 'nav-item--active': isChecksActive }" @click="goToChecks">
+          <!-- <button class="nav-item" :class="{ 'nav-item--active': isChecksActive }" @click="goToChecks">
             Проверки
-          </button>
+          </button> -->
           <button class="nav-item" :class="{ 'nav-item--active': route.name === 'inspector-issues' }"
           @click="router.push({ name: 'inspector-issues' })"
           >
@@ -29,11 +28,6 @@
         <button class="logout-button" @click="logout">Выйти</button>
       </div>
     </aside>
-
-    <main class="customer-main">
-      <router-view />
-    </main>
-  </div>
 </template>
 
 <script setup lang="ts">
@@ -57,7 +51,7 @@ const greeting = computed(() => {
     : 'Добрый день'
 })
 
-const isChecksActive = computed(() => route.name === 'inspector-checks')
+// const isChecksActive = computed(() => route.name === 'inspector-checks')
 const isObjectsActive = computed(() => route.name === 'inspector-objects')
 
 async function fetchPendingCount() {
@@ -105,21 +99,15 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.customer-layout {
-  display: grid;
-  grid-template-columns: 206px 1fr;
-  min-height: 100vh;
-  background: #f9fafb;
-}
 
 .sidebar {
-  grid-column: 1;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   padding: 20px 18px;
   background: #ffffff;
   border-right: 1px solid #e5e7eb;
+  box-sizing: border-box;
 }
 
 .sidebar-logo {
