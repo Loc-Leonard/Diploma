@@ -23,13 +23,14 @@
 
       <div v-else-if="detail" class="detail-body">
         <aside class="detail-aside">
-          <div class="mini-map">
+          <div class="mini-map clickable-map" @click="showMapModal = true">
             <AppMap
               v-if="objectMapMarkers.length"
               :markers="objectMapMarkers"
               height="180px"
             />
             <div v-else class="map-placeholder-box">🗺</div>
+            <div class="map-hint-overlay">🔍 Нажмите для увеличения</div>
           </div>
 
           <section class="aside-section">
@@ -570,6 +571,22 @@
           </div>
         </div>
       </div>
+      <div v-if="showMapModal" class="modal-overlay" @click.self="showMapModal = false">
+        <div class="modal-card modal-card--wide map-modal">
+          <div class="modal-map-header">
+            <h2>Карта объекта</h2>
+            <button class="close-btn" @click="showMapModal = false">✕</button>
+          </div>
+          <div class="map-container-large">
+            <AppMap
+              v-if="objectMapMarkers.length"
+              :markers="objectMapMarkers"
+              height="480px"
+              />
+              <div v-else="map-placeholder-large">Нет координат для отображения</div>
+            </div>
+        </div>
+      </div>
     </main>
   </div>
 </template>
@@ -592,6 +609,7 @@ const API_BASE = 'http://localhost:8080'
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
+const showMapModal = ref(false)
 
 type ObjStatus = 'PLANNED' | 'WAITING_INSPECTOR_CONFIRMATION' | 'ACTIVE' | 'FINISHED'
 
@@ -2092,5 +2110,75 @@ watch(
   .layout { grid-template-columns: 1fr; }
   .form-row { grid-template-columns: 1fr; }
   .progress-cell { min-width: 120px; }
+}
+
+/* Кликабельная мини-карта */
+.clickable-map {
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.clickable-map:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.1);
+}
+.map-hint-overlay {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #4b5563;
+  pointer-events: none;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Стили модального окна */
+.map-modal {
+  padding: 16px;
+}
+.modal-map-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.modal-map-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+}
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+.close-btn:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+.map-container-large {
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+}
+.map-placeholder-large {
+  height: 480px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f9fafb;
+  color: #6b7280;
+  font-size: 14px;
 }
 </style>

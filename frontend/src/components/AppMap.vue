@@ -62,18 +62,30 @@ function renderMap() {
   }
 
   items.forEach((item) => {
-    const marker = L.marker([item.lat, item.lng])
+  // 1. Создаём маркер
+  const marker = L.marker([item.lat, item.lng])
 
-    const popupHtml = [item.title, item.subtitle]
-      .filter(Boolean)
-      .join('<br>')
+  const popupHtml = [item.title, item.subtitle]
+    .filter(Boolean)
+    .join('<br>')
 
-    if (popupHtml) {
-      marker.bindPopup(popupHtml)
-    }
+  if (popupHtml) {
+    marker.bindPopup(popupHtml)
+  }
 
-    marker.addTo(markersLayer!)
+  marker.addTo(markersLayer!)
+
+  // 2. Рисуем область работ (окружность 100 метров)
+  const workArea = L.circle([item.lat, item.lng], {
+    radius: 100,              // радиус в метрах
+    color: '#4f46e5',         // цвет границы
+    fillColor: '#4f46e5',     // цвет заливки
+    fillOpacity: 0.15,        // прозрачность заливки
+    weight: 2,                // толщина границы
+    interactive: false        // окружность не ловит клики (чтобы не мешать карте)
   })
+  workArea.addTo(markersLayer!)
+})
 
   if (items.length > 1) {
     const bounds = L.latLngBounds(
