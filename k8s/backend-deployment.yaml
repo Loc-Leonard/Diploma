@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: construction-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: locleon123/backend-latest:latest # Твой образ в Docker Hub
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+        
+        # === ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ ===
+        env:
+        # 1. Подключение к БД (Критично!)
+        - name: DB_DSN
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: DB_DSN
+
+        # 2. JWT Секрет (Критично!)
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: JWT_SECRET
+
+        # 3. Админка (для сида данных)
+        - name: ADMIN_EMAIL
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: ADMIN_EMAIL
+        - name: ADMIN_FULL_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: ADMIN_FULL_NAME
+        - name: ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: ADMIN_PASSWORD
+
+        # 4. Прочие настройки
+        - name: STORAGE_ROOT
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: STORAGE_ROOT
+        - name: CV_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: CV_SERVICE_URL
+        
+        # Опционально: если хочешь сбрасывать БД при старте (для тестов)
+        # - name: RESETDBONSTART
+        #   value: "true"
+        # - name: SEEDONSTART
+        #   value: "true"
+
+        volumeMounts:
+        - name: storage
+          mountPath: /app/storage # Должно совпадать со STORAGE_ROOT, если он не абсолютный
+        
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "100m"
+            
+        livenessProbe:
+          tcpSocket:
+            port: 8080
+          initialDelaySeconds: 30 # Увеличил, чтобы дать время на миграцию БД
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+
+      volumes:
+      - name: storage
+        persistentVolumeClaim:
+          claimName: backend-storage-pvc

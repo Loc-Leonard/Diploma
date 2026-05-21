@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: construction-app
+data:
+  POSTGRES_USER: "user"
+  POSTGRES_DB: "journal"
+  POSTGRES_HOST: "postgres-service"  # имя сервиса Kubernetes
+  POSTGRES_PORT: "5432"
+  CV_SERVICE_URL: "http://cv-agent-service:8000"  # имя сервиса CV-агента
+  STORAGE_ROOT: "/app/storage"
+  ADMIN_EMAIL: "admin@example.com"
+  ADMIN_FULL_NAME: "Super-user"
+  VITE_API_URL: "http://176.108.250.251:30080"
