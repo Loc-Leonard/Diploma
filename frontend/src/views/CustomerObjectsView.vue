@@ -126,13 +126,35 @@
           />
         </div>
         <div class="form-field">
-          <label>Путь к файлу акта</label>
+          <label>Акт открытия (Опционально)</label>
           <input
-            v-model="activateForm.act_file_path"
-            type="text"
-            placeholder="/files/acts/act-1.pdf"
-            :disabled="activateLoading"
+            type="file"
+            ref="actFileInputRef"
+            accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx"
+            class="hidden-file-input"
+            @change="handleActFileSelect"
           />
+
+          <div v-if="actFileUploading" class="file-status">
+            <span class="loading-spinner">⏳</span> Загрузка файла...
+          </div>
+
+          <div v-else-if="actFileSelected" class="file-selected">
+            <span class="file-icon">📄</span>
+            <span class="file-name">{{ actFileName }}</span>
+            <button type="button" class="remove-file-btn" @click="removeActFile">✕</button>
+          </div>
+
+          <button
+            v-else
+            type="button"
+            class="file-select-btn"
+            @click="triggerActFileInput"
+            :disabled="activateLoading"
+          >
+              📎 Прикрепить файл
+          </button>
+
         </div>
         <div v-if="activateError" class="state state--error">{{ activateError }}</div>
         <div class="modal-actions">
@@ -257,6 +279,59 @@ const activatingObjectId = ref<number | null>(null)
 const activateForm = ref<ActivateForm>({ checklist_json: '', act_file_path: '' })
 const activateLoading = ref(false)
 const activateError = ref<string | null>(null)
+const actFileInputRef = ref<HTMLInputElement | null>(null)
+const actFileUploading = ref(false)
+const actFileSelected = ref(false)
+const actFileName = ref('')
+const actFileError = ref<string | null>(null)
+
+function triggerActFileInput() {
+  actFileInputRef.value?.click()
+}
+
+async function handleActFileSelect(event: Event) {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (!file || !activatingObjectId.value) return
+
+  actFileUploading.value = true
+  actFileError.value = null
+  
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('document_type', 'OTHER')
+
+  try {
+    const res = await fetch(`${API_BASE}/customer/objects/${activatingObjectId.value}/documents/upload`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${auth.token}` },
+      body: formData,
+    })
+    
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}))
+      throw new Error(errData.error || 'Ошибка загрузки акта')
+    }
+    
+    const data = await res.json()
+    // Бэкенд вернул путь, автоматически подставляем его в форму активации
+    activateForm.value.act_file_path = data.file_path
+    actFileName.value = data.file_name || file.name
+    actFileSelected.value = true
+  } catch (e: any) {
+    actFileError.value = e.message || 'Ошибка загрузки'
+  } finally {
+    actFileUploading.value = false
+    if (target) target.value = ''
+  }
+}
+
+function removeActFile() {
+  actFileSelected.value = false
+  actFileName.value = ''
+  activateForm.value.act_file_path = ''
+  actFileError.value = null
+}
 
 // Загрузка
 async function fetchObjects() {
@@ -321,11 +396,18 @@ function statusClass(status: DashboardObjectStatus) {
 function openActivateForm(objectId: number) {
   activatingObjectId.value = objectId
   activateError.value = null
+  actFileError.value = null
+  actFileSelected.value = false
+  actFileName.value = ''
+  actFileUploading.value = false
   activateForm.value = { checklist_json: '', act_file_path: '' }
 }
 
 function cancelActivate() {
   activatingObjectId.value = null
+  actFileSelected.value = false
+  actFileName.value = ''
+  actFileError.value = null
 }
 
 async function submitActivate() {
@@ -735,6 +817,64 @@ function logout() {
   gap: 8px;
   margin-top: 4px;
 }
+
+
+.hidden-file-input { display: none; }
+
+.file-select-btn {
+  padding: 8px 12px;
+  background: #f9fafb;
+  border: 1px dashed #d1d5db;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #4b5563;
+  width: 100%;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+}
+.file-select-btn:hover:not(:disabled) { background: #f3f4f6; border-color: #9ca3af; }
+.file-select-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.file-status {
+  font-size: 13px;
+  color: #6b7280;
+  padding: 10px;
+  background: #f9fafb;
+  border-radius: 8px;
+  text-align: center;
+  border: 1px solid #e5e7eb;
+}
+
+.file-selected {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  font-size: 13px;
+}
+.file-icon { font-size: 16px; flex-shrink: 0; }
+.file-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #166534;
+}
+.remove-file-btn {
+  background: none;
+  border: none;
+  color: #dc2626;
+  cursor: pointer;
+  padding: 0 4px;
+  font-size: 16px;
+  line-height: 1;
+  transition: color 0.15s;
+}
+.remove-file-btn:hover { color: #991b1b; }
 
 /* Адаптив */
 @media (max-width: 900px) {

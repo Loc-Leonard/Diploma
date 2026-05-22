@@ -1010,7 +1010,15 @@ async function handleFileSelect(event: Event) {
 }
 
 async function uploadFile(file: File) {
-  if (!documentsBaseUrl.value) return
+  // 1. Проверяем, что объект загружен
+  if (!detail.value?.object?.id) {
+    docErrorMessage.value = 'Объект ещё не загружен. Попробуйте позже.'
+    return
+  }
+
+  // 2. Формируем URL явно (не через computed, чтобы избежать гонок)
+  const objectId = detail.value.object.id
+  const uploadUrl = `${API_BASE}/${role.value.toLowerCase()}/objects/${objectId}/documents/upload`
 
   docUploading.value = true
   docErrorMessage.value = null
@@ -1020,12 +1028,11 @@ async function uploadFile(file: File) {
   formData.append('document_type', 'OTHER')
 
   try {
-    const uploadUrl = `${documentsBaseUrl.value}/upload`
-
     const res = await fetch(uploadUrl, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${auth.token}`,
+        // ❗ Не указываем Content-Type — браузер сам поставит multipart/form-data с boundary
       },
       body: formData,
     })
@@ -1039,9 +1046,11 @@ async function uploadFile(file: File) {
       throw new Error(errorData.error || `Ошибка ${res.status}`)
     }
 
+    // 3. Обновляем список документов после успешной загрузки
     await fetchDocuments()
   } catch (e: any) {
-    docErrorMessage.value = e.message
+    console.error('Upload error:', e)
+    docErrorMessage.value = e.message || 'Неизвестная ошибка загрузки'
   } finally {
     docUploading.value = false
   }
@@ -1052,7 +1061,7 @@ async function downloadDocument(doc: Document) {
   docErrorMessage.value = null
 
   try {
-    const downloadUrl = `${API_BASE}/${role.value.toLowerCase()}/objects/${detail.value?.object.id}/documents/${doc.id}/download`
+    const downloadUrl = `${API_BASE}/api/storage/download/${doc.id}`
 
     const res = await fetch(downloadUrl, {
       headers: { Authorization: `Bearer ${auth.token}` },
@@ -1307,7 +1316,7 @@ async function uploadIssueAttachment(file: File) {
 
 async function downloadIssueAttachment(file: IssueAttachment) {
   try {
-    const res = await fetch(`${API_BASE}/storage/download/${file.id}`, {
+    const res = await fetch(`${API_BASE}/api/storage/download/${file.id}`, {
       headers: { Authorization: `Bearer ${auth.token}` },
     })
 
