@@ -92,6 +92,15 @@
                 {{ statusLabel(obj.status) }}
               </span>
             </div>
+            <div class="object-progress">
+              <div class="progress-bar">
+                <div
+                  class="progress-bar-fill"
+                  :style="{ width: `${normalizedProgress(obj.progress)}%` }"
+                ></div>
+              </div>
+                <span class="progress-text">{{ normalizedProgress(obj.progress) }}%</span>
+            </div>
 
             <div class="object-people">
               <div>
@@ -99,7 +108,7 @@
                 <span>{{ obj.foreman_name || '—' }}</span>
               </div>
               <div v-if="obj.planned_start_date">
-                <span class="label">Плановая дата:</span>
+                <span class="label">Плановая дата начала:</span>
                 <span>{{ formatDate(obj.planned_start_date) }}</span>
               </div>
             </div>
@@ -271,6 +280,7 @@ type InspectorObjectItem = {
   lat: number
   lng: number
   activation_reject_reason?: string | null
+  progress?: number
 }
 
 type ObjectDetails = {
@@ -356,7 +366,10 @@ async function fetchObjects() {
     loading.value = false
   }
 }
-
+function normalizedProgress(value?: number | null){
+  if (typeof value !== 'number' || Number.isNaN(value)) return 0
+  return Math.min(100, Math.max(0, Math.round(value)))
+}
 async function fetchObjectDetails(id: number) {
   modal.loading = true
   modal.fetchError = null
@@ -686,6 +699,35 @@ onMounted(fetchObjects)
 .status-chip--active    { background: #dcfce7; color: #166534; }
 .status-chip--finished  { background: #e0f2fe; color: #1d4ed8; }
 .status-chip--pending   { background: #fee2e2; color: #b91c1c; }
+
+/*=== Progress Bar === */
+.object-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 5px;
+  background: #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: #4f46e5;
+  border-radius: 999px;
+}
+
+.progress-text {
+  font-size: 12px;
+  color: #6b7280;
+  min-width: 32px;
+  text-align: right;
+}
 
 /* === Мета-информация === */
 .object-people {

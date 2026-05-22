@@ -79,6 +79,10 @@
                 <span class="label">Прораб:</span>
                 <span>{{ obj.foreman.full_name }}</span>
               </div>
+              <div v-if="obj.planned_start_date">
+                <span class="label">Плановая дата начала</span>
+                <span>{{ formatDate(obj.planned_start_date) }}</span>
+              </div>
             </div>
 
             <div v-if="obj.activation_reject_reason" class="reject-notice">
@@ -360,7 +364,10 @@ async function submitActivate() {
     activateLoading.value = false
   }
 }
-
+function formatDate(value?: string | null) {
+  if (!value) return '-'
+  return new Date(value).toLocaleDateString()
+}
 function logout() {
   auth.clearAuth()
   router.push({ name: 'login' })
@@ -572,6 +579,9 @@ function logout() {
   margin-top: 8px;
   font-size: 12px;
   color: #374151;
+  display:flex;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
 .object-people .label { color: #9ca3af; margin-right: 4px; }

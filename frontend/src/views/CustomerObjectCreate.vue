@@ -487,6 +487,30 @@ onMounted(loadUsers)
   flex-direction: column;
   gap: 16px;
 }
+.primary-btn {
+padding: 8px 16px;
+  background: #4f46e5;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+.secondary-btn {
+padding: 8px 16px;
+  background: #e30404;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
 
 .form-grid {
   display: grid;
@@ -494,12 +518,11 @@ onMounted(loadUsers)
   gap: 16px 24px;
 }
 
-/* ИСПРАВЛЕНИЕ ПОЗИЦИОНИРОВАНИЯ DROPDOWN */
 .form-field {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  position: relative; /* Это критично для корректного отображения подсказок */
+  position: relative; 
 }
 
 .form-field--full {
